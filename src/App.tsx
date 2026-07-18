@@ -1,7 +1,10 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import {
   Activity,
+  Building2,
   CalendarCheck,
+  Check,
+  ChevronDown,
   ClipboardList,
   Database,
   LayoutDashboard,
@@ -32,6 +35,7 @@ import type { AbbyCase, AbbyRun, DirectoryPerson, DirectoryResponse, DirectoryRo
 
 type View = 'admin' | 'patient' | 'provider'
 type AdminSection = 'dashboard' | 'users' | 'patients'
+type WorkspaceRole = 'admin' | 'coach' | 'kaiser'
 
 const menuItems: Array<
   | { id: 'dashboard' | 'users' | 'patients' | 'chat' | 'brief'; label: string; icon: typeof LayoutDashboard }
@@ -53,12 +57,18 @@ const directoryRoleOptions: Array<{ value: DirectoryRole; label: string }> = [
   { value: 'superadmin', label: 'Superadmin' },
 ]
 
+const workspaceRoleOptions: Array<{ value: WorkspaceRole; label: string; description: string }> = [
+  { value: 'admin', label: 'Admin', description: 'All programs' },
+  { value: 'coach', label: 'Coach', description: 'Assigned programs' },
+  { value: 'kaiser', label: 'Kaiser', description: 'Get Set dashboard' },
+]
+
 function App() {
   const [records, setRecords] = useState<EncounterRecord[]>([])
   const [selectedId, setSelectedId] = useState('')
   const [view, setView] = useState<View>('admin')
   const [adminSection, setAdminSection] = useState<AdminSection>('dashboard')
-  const [selectedRole, setSelectedRole] = useState<DirectoryRole>('superadmin')
+  const [selectedRole, setSelectedRole] = useState<WorkspaceRole>('admin')
   const [loadingError, setLoadingError] = useState('')
   const [runsByCase, setRunsByCase] = useState<Record<string, AbbyRun>>({})
   const [persistence, setPersistence] = useState('loading')
@@ -250,28 +260,62 @@ function Header({
   persistence: string
   view: View
   directory: DirectoryResponse | null
-  selectedRole: DirectoryRole
-  onSelectedRoleChange: (role: DirectoryRole) => void
+  selectedRole: WorkspaceRole
+  onSelectedRoleChange: (role: WorkspaceRole) => void
 }) {
   const { record } = abbyCase
-  const roleText = roleLabel(selectedRole)
+  const [isRoleMenuOpen, setIsRoleMenuOpen] = useState(false)
+  const selectedRoleOption = workspaceRoleOptions.find((role) => role.value === selectedRole) ?? workspaceRoleOptions[0]
   return (
     <header className="topbar">
       <div className="topbar-left">
-        <label className="role-select" htmlFor="role-select">
-          <ShieldCheck size={17} />
-          <select id="role-select" value={selectedRole} onChange={(event) => onSelectedRoleChange(event.target.value as DirectoryRole)}>
-            {directoryRoleOptions.map((role) => (
-              <option key={role.value} value={role.value}>{role.label}</option>
-            ))}
-          </select>
-        </label>
+        <button type="button" className="org-select" aria-label="Selected workspace">
+          <Building2 size={18} />
+          <span>Abby</span>
+          <ChevronDown size={17} />
+        </button>
+        <div className="role-menu-shell">
+          <button
+            type="button"
+            className={`role-select ${isRoleMenuOpen ? 'open' : ''}`}
+            aria-haspopup="menu"
+            aria-expanded={isRoleMenuOpen}
+            onClick={() => setIsRoleMenuOpen((open) => !open)}
+          >
+            <ShieldCheck size={18} />
+            <span>{selectedRoleOption.label}</span>
+            <ChevronDown size={17} />
+          </button>
+          {isRoleMenuOpen && (
+            <div className="role-dropdown" role="menu">
+              {workspaceRoleOptions.map((role) => (
+                <button
+                  key={role.value}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={role.value === selectedRole}
+                  className={role.value === selectedRole ? 'selected' : ''}
+                  onClick={() => {
+                    onSelectedRoleChange(role.value)
+                    setIsRoleMenuOpen(false)
+                  }}
+                >
+                  <span>
+                    <strong>{role.label}</strong>
+                    <small>{role.description}</small>
+                  </span>
+                  {role.value === selectedRole && <Check size={18} />}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="topbar-account" aria-label="Current user">
         <UserRound size={19} />
         <div>
-          <span>{roleText}</span>
+          <span>{selectedRoleOption.label}</span>
           <strong>Oliver Aalami</strong>
         </div>
         <button type="button" title="Logout" aria-label="Logout">

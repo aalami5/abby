@@ -226,14 +226,15 @@ select {
 
 .topbar-left,
 .topbar-account,
-.role-select {
+.role-select,
+.org-select {
   display: flex;
   align-items: center;
 }
 
 .topbar-left {
   min-width: 0;
-  gap: 18px;
+  gap: 12px;
 }
 
 .workspace-title {
@@ -255,15 +256,92 @@ select {
   text-overflow: ellipsis;
 }
 
+.org-select,
 .role-select {
-  width: 178px;
   min-height: 38px;
   gap: 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
+  background: #ffffff;
+  padding: 0 12px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.org-select {
   color: var(--abridge-dark);
   background: #fff8f6;
-  padding: 0 8px;
+  border-color: #f5d7d0;
+}
+
+.role-menu-shell {
+  position: relative;
+}
+
+.role-select {
+  min-width: 156px;
+  justify-content: space-between;
+}
+
+.role-select.open {
+  border-color: #0a66b8;
+  box-shadow: 0 0 0 3px rgba(10, 102, 184, 0.14);
+}
+
+.role-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 20;
+  width: 334px;
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 18px 42px rgba(31, 41, 51, 0.18);
+  padding: 8px;
+}
+
+.role-dropdown button {
+  min-height: 86px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.role-dropdown button:hover,
+.role-dropdown button.selected {
+  background: #f6f6f7;
+}
+
+.role-dropdown button > span {
+  display: grid;
+  gap: 5px;
+}
+
+.role-dropdown strong {
+  font-size: 22px;
+  line-height: 1.1;
+  font-weight: 500;
+}
+
+.role-dropdown small {
+  color: var(--muted);
+  font-size: 19px;
+  line-height: 1.2;
 }
 
 .role-select select {
