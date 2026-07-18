@@ -43,7 +43,7 @@ const menuItems: Array<
   { id: 'users', label: 'Users', icon: UsersRound },
   { id: 'patients', label: 'Patients', icon: UserRound },
   { id: 'chat', label: 'Patient chat', icon: MessageSquareText },
-  { id: 'brief', label: 'Abby Instructions', icon: Stethoscope },
+  { id: 'brief', label: 'App Instructions', icon: Stethoscope },
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
@@ -148,7 +148,8 @@ function App() {
     () => {
       if (selectedRole === 'patient') return menuItems.filter((item) => item.id === 'chat')
       if (selectedRole === 'admin') return menuItems.filter((item) => item.id === 'users' || item.id === 'settings')
-      return menuItems.filter((item) => item.id !== 'brief' || selectedRole === 'provider')
+      if (selectedRole === 'provider') return menuItems.filter((item) => item.id === 'brief' || item.id === 'settings')
+      return menuItems
     },
     [selectedRole],
   )
@@ -163,11 +164,15 @@ function App() {
       setAdminSection('users')
       return
     }
+    if (selectedRole === 'provider' && (view === 'patient' || (view === 'admin' && adminSection !== 'settings'))) {
+      setView('provider')
+      return
+    }
     if (view === 'provider' && selectedRole !== 'provider') {
       setView('admin')
       if (selectedRole === 'admin') setAdminSection('users')
     }
-  }, [selectedRole, view])
+  }, [adminSection, selectedRole, view])
 
   const applyRunResponse = (response: Awaited<ReturnType<typeof loadRuns>>) => {
     setRunsByCase(response.runsByCase)
@@ -1082,7 +1087,7 @@ function ProviderView({
             </select>
           </label>
           <label className="wide-field">
-            <span>Abby Instructions</span>
+            <span>App Instructions</span>
             <textarea
               value={providerForm.abbyInstructions}
               onChange={(event) => setProviderForm({ ...providerForm, abbyInstructions: event.target.value })}
