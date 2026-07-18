@@ -10,6 +10,7 @@ import {
   Save,
   ShieldCheck,
   Stethoscope,
+  UsersRound,
   UserRound,
   X,
 } from 'lucide-react'
@@ -250,7 +251,7 @@ function AdminView({
   onDirectoryChange: (directory: DirectoryResponse) => void
   onOpenPatient: (recordId: string) => void
 }) {
-  const [adminTab, setAdminTab] = useState<'superadmin' | 'users'>('users')
+  const [adminTab, setAdminTab] = useState<'users' | 'patients'>('users')
   const [form, setForm] = useState({
     id: '',
     name: '',
@@ -262,7 +263,6 @@ function AdminView({
   const [isSaving, setIsSaving] = useState(false)
   const users = directory.people
   const patients = directory.people.filter((person) => person.roles.includes('patient'))
-  const superadmins = directory.people.filter((person) => person.roles.includes('superadmin'))
   const isEditing = Boolean(form.id)
 
   const savePerson = async (event: FormEvent<HTMLFormElement>) => {
@@ -298,46 +298,31 @@ function AdminView({
       roles: person.roles,
       createdAt: person.createdAt,
     })
-    setAdminTab('users')
+    setAdminTab(person.roles.includes('patient') ? 'patients' : 'users')
     setAdminMessage(`Editing ${person.name}`)
   }
 
   return (
-    <section className="content-grid admin-simple-grid">
-      <div className="admin-tabs" role="tablist" aria-label="Superadmin tabs">
-        <button type="button" className={adminTab === 'superadmin' ? 'active' : ''} onClick={() => setAdminTab('superadmin')}>
-          <ShieldCheck size={16} /> Superadmin
-        </button>
+    <section className="content-grid admin-clean-grid">
+      <div className="admin-section-menu" role="tablist" aria-label="Superadmin directory sections">
+        <div className="admin-menu-kicker">
+          <ShieldCheck size={17} />
+          <span>Directory</span>
+        </div>
         <button type="button" className={adminTab === 'users' ? 'active' : ''} onClick={() => setAdminTab('users')}>
-          <UserRound size={16} /> Users
+          <UsersRound size={17} />
+          <span>Users</span>
+          <strong>{users.length}</strong>
+        </button>
+        <button type="button" className={adminTab === 'patients' ? 'active' : ''} onClick={() => setAdminTab('patients')}>
+          <UserRound size={17} />
+          <span>Patients</span>
+          <strong>{patients.length}</strong>
         </button>
       </div>
 
-      {adminTab === 'superadmin' && (
-        <div className="panel superadmin-card">
-          <p className="eyebrow">Superadmin</p>
-          <h1>Oliver Aalami</h1>
-          <div className="superadmin-line">
-            <span>Cell</span>
-            <strong>{superadmins[0]?.phone ?? '+16503153236'}</strong>
-          </div>
-          <div className="superadmin-line">
-            <span>Access</span>
-            <strong>superadmin</strong>
-          </div>
-          <div className="superadmin-line">
-            <span>Patients</span>
-            <strong>{patients.length} Abridge synthetic records</strong>
-          </div>
-          <div className="superadmin-line">
-            <span>Providers</span>
-            <strong>{directory.counts.providers} directory users</strong>
-          </div>
-        </div>
-      )}
-
       {adminTab === 'users' && (
-        <>
+        <div className="admin-directory-workspace">
           <form className="panel person-form compact-patient-form" onSubmit={savePerson}>
             <div className="panel-title-row">
               <div>
@@ -373,8 +358,28 @@ function AdminView({
             {adminMessage && <div className="admin-message">{adminMessage}</div>}
           </form>
 
-          <UserRoster users={users} onEdit={editPerson} onOpenPatient={onOpenPatient} />
-        </>
+          <UserRoster
+            users={users}
+            eyebrow="Users"
+            title={`${users.length} directory users`}
+            ariaLabel="Users"
+            onEdit={editPerson}
+            onOpenPatient={onOpenPatient}
+          />
+        </div>
+      )}
+
+      {adminTab === 'patients' && (
+        <div className="admin-directory-workspace patients-only-workspace">
+          <UserRoster
+            users={patients}
+            eyebrow="Patients"
+            title={`${patients.length} patients`}
+            ariaLabel="Patients"
+            onEdit={editPerson}
+            onOpenPatient={onOpenPatient}
+          />
+        </div>
       )}
     </section>
   )
@@ -382,10 +387,16 @@ function AdminView({
 
 function UserRoster({
   users,
+  eyebrow,
+  title,
+  ariaLabel,
   onEdit,
   onOpenPatient,
 }: {
   users: DirectoryPerson[]
+  eyebrow: string
+  title: string
+  ariaLabel: string
   onEdit: (person: DirectoryPerson) => void
   onOpenPatient: (recordId: string) => void
 }) {
@@ -393,12 +404,12 @@ function UserRoster({
     <div className="panel patient-roster">
       <div className="panel-title-row">
         <div>
-          <p className="eyebrow">Users</p>
-          <h2>{users.length} directory users</h2>
+          <p className="eyebrow">{eyebrow}</p>
+          <h2>{title}</h2>
         </div>
         <UserRound size={20} />
       </div>
-      <div className="patient-table" role="table" aria-label="Users">
+      <div className="patient-table" role="table" aria-label={ariaLabel}>
         <div className="patient-table-head" role="row">
           <span>Name</span>
           <span>Role</span>
