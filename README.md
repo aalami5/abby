@@ -25,6 +25,20 @@ npm run dev
 
 Open `http://127.0.0.1:5173/`.
 
+Use `vercel dev` instead of the Vite-only command when testing the complete
+patient flow locally, because OTP, Claude, and LiveKit token routes run as
+Vercel Functions.
+
+The provider portal remains at `/`. The new standalone patient experience is
+available at:
+
+```text
+/care/demo-cardiovascular
+```
+
+The synthetic cardiovascular demo uses `+1 555 012 0011`. When Twilio is not
+configured, the verification screen displays a one-click local demo code.
+
 ## Cloud
 
 Current Vercel deployment:
@@ -45,6 +59,11 @@ https://abby-mocha.vercel.app/api/chat
 
 Run state uses the `/api/runs` lifecycle API. Superadmin people, role, patient, provider, and OTP state use `/api/directory`. Patient chat uses `/api/chat`, which calls Claude server-side. In production, the APIs use Google Cloud Firestore when the Google service-account environment variables are configured; otherwise they fall back to serverless memory, which is enough to prove the flow but not durable across cold starts.
 
+The mobile patient app uses `/api/patient-session`, `/api/patient-context`,
+`/api/patient-chat`, and `/api/livekit-token`. Its chart context is assembled on
+the server and its short-lived session is bound to the care link. See
+`docs/ARCHITECTURE.md` for the complete trust boundary.
+
 ## Data
 
 The prototype reads synthetic data from:
@@ -63,7 +82,7 @@ Required for patient chat:
 
 ```text
 ANTHROPIC_API_KEY
-ABBY_CLAUDE_MODEL=claude-sonnet-5
+ABBY_CLAUDE_MODEL=claude-sonnet-4-6
 ```
 
 `CLAUDE_API_KEY` is accepted as a fallback when `ANTHROPIC_API_KEY` is not set.
@@ -83,5 +102,5 @@ Optional Twilio OTP env vars:
 ```text
 TWILIO_ACCOUNT_SID
 TWILIO_AUTH_TOKEN
-TWILIO_VERIFY_SERVICE_SID
+TWILIO_VERIFY_SERVICE_SID_ABBY
 ```

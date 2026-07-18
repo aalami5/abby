@@ -1,0 +1,131 @@
+@import '@livekit/components-styles';
+
+:root {
+  --abby-red: #e63832;
+  --abby-red-deep: #c92825;
+  --abby-cream: #f6f0e9;
+  --abby-ink: #211f1d;
+  --abby-muted: #746f69;
+  --abby-line: #e9e3dc;
+}
+
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.patient-entry-page, .patient-app-shell, .patient-voice-room { min-height: 100dvh; color: var(--abby-ink); font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.patient-entry-page { display: grid; place-items: center; padding: 24px; background: radial-gradient(circle at 50% -10%, #fff 0, var(--abby-cream) 46%, #eee5dc 100%); }
+.patient-entry-card { width: min(100%, 440px); padding: 32px 28px; border: 1px solid rgba(112, 83, 64, .14); border-radius: 30px; background: rgba(255, 255, 255, .92); box-shadow: 0 28px 80px rgba(66, 43, 30, .12); text-align: center; }
+.patient-entry-logo { width: 72px; height: 72px; margin-bottom: 18px; border-radius: 50%; box-shadow: 0 12px 30px rgba(230, 56, 50, .15); }
+.patient-entry-kicker { display: inline-flex; align-items: center; gap: 6px; color: #655d56; font-size: 13px; font-weight: 750; }
+.patient-entry-card h1 { margin: 14px 0 10px; font-size: clamp(30px, 8vw, 40px); line-height: 1; letter-spacing: -.045em; }
+.patient-entry-card > p { margin: 0 auto 20px; max-width: 340px; color: var(--abby-muted); font-size: 16px; line-height: 1.55; }
+.patient-visit-card { display: grid; gap: 4px; margin: 22px 0; padding: 16px; border: 1px solid var(--abby-line); border-radius: 18px; background: #fcfaf8; text-align: left; }
+.patient-visit-card span, .patient-visit-card small { color: var(--abby-muted); font-size: 12px; }
+.patient-visit-card strong { font-size: 15px; line-height: 1.35; }
+.patient-entry-card form { display: grid; gap: 12px; }
+.patient-entry-card label { display: grid; gap: 7px; text-align: left; }
+.patient-entry-card label span { color: #5b5550; font-size: 13px; font-weight: 750; }
+.patient-entry-card input { min-height: 54px; border: 1px solid #dcd4cc; border-radius: 15px; padding: 0 16px; background: white; color: var(--abby-ink); font: inherit; font-size: 17px; outline: none; }
+.patient-entry-card input:focus { border-color: var(--abby-red); box-shadow: 0 0 0 4px rgba(230, 56, 50, .1); }
+.patient-entry-card form > button:not(.patient-text-button):not(.demo-code-button) { min-height: 54px; border: 0; border-radius: 16px; background: var(--abby-red); color: white; font: inherit; font-weight: 800; cursor: pointer; }
+.patient-entry-card button:disabled { opacity: .52; cursor: not-allowed; }
+.patient-code-input { text-align: center; letter-spacing: .32em; font-size: 24px !important; font-weight: 800; }
+.patient-entry-card .demo-code-button { display: flex; justify-content: center; align-items: center; gap: 7px; min-height: 40px; border: 1px dashed #e3a39f; border-radius: 12px; background: #fff6f4; color: #9d2925; font: inherit; font-size: 13px; font-weight: 750; cursor: pointer; }
+.patient-text-button { border: 0; background: transparent; color: var(--abby-muted); font: inherit; font-weight: 700; cursor: pointer; }
+.patient-entry-error { margin-bottom: 14px; padding: 11px 13px; border-radius: 12px; background: #fff0ed; color: #9a2d27; font-size: 14px; text-align: left; }
+.patient-privacy-copy { display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 20px; color: #8b837c; }
+.patient-loading { display: grid; justify-items: center; gap: 14px; color: var(--abby-muted); }
+.patient-loading img { width: 82px; height: 82px; border-radius: 50%; animation: patient-breathe 1.8s ease-in-out infinite; }
+.patient-loading span { width: 110px; height: 4px; overflow: hidden; border-radius: 4px; background: #e0d7ce; }
+
+.patient-app-shell { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; max-width: 760px; margin: 0 auto; background: #fff; box-shadow: 0 0 80px rgba(60, 42, 30, .08); }
+.patient-app-header { min-height: 70px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 20px; border-bottom: 1px solid var(--abby-line); background: rgba(255, 255, 255, .92); backdrop-filter: blur(18px); }
+.patient-brand { display: flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; }
+.patient-brand img { width: 44px; height: 44px; border-radius: 50%; }
+.patient-brand div { display: grid; }
+.patient-brand strong { color: var(--abby-red); font-size: 22px; line-height: 1; letter-spacing: -.05em; }
+.patient-brand span { margin-top: 3px; color: var(--abby-muted); font-size: 11px; }
+.patient-secure-state { display: flex; align-items: center; gap: 5px; color: #6f6963; font-size: 12px; font-weight: 700; }
+.patient-plan-strip { display: grid; gap: 4px; padding: 12px 20px; border-bottom: 1px solid #eee7e0; background: #fbf7f3; }
+.patient-plan-strip > div { display: flex; align-items: center; gap: 7px; font-size: 13px; }
+.patient-plan-strip svg { color: var(--abby-red); }
+.patient-plan-strip small { overflow: hidden; color: var(--abby-muted); text-overflow: ellipsis; white-space: nowrap; }
+.patient-thread { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; padding: 24px clamp(16px, 5vw, 38px) 30px; background: linear-gradient(180deg, #fff 0, #fefdfc 100%); }
+.patient-day-label { align-self: center; color: #958d86; font-size: 12px; font-weight: 700; }
+.patient-message { display: flex; align-items: flex-start; gap: 9px; max-width: min(92%, 620px); }
+.patient-message.patient { align-self: flex-end; }
+.patient-message-avatar { width: 34px; height: 34px; flex: 0 0 34px; border-radius: 50%; }
+.patient-message-content { display: grid; justify-items: start; gap: 8px; }
+.patient-message-bubble { border-radius: 6px 20px 20px 20px; padding: 15px 17px; background: #f3f0ed; color: #2f2b28; font-size: clamp(16px, 4.3vw, 18px); line-height: 1.55; }
+.patient-message.patient .patient-message-bubble { border-radius: 20px 20px 6px 20px; background: var(--abby-red); color: #fff; }
+.patient-message-bubble p { margin: 0; white-space: pre-wrap; }
+.replay-message { min-height: 45px; display: inline-flex; align-items: center; gap: 8px; border: 1px solid #e2dcd6; border-radius: 999px; padding: 0 15px; background: white; color: #4f4944; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; box-shadow: 0 4px 14px rgba(46, 34, 27, .05); }
+.replay-message.playing { border-color: #efaaa6; background: #fff4f2; color: var(--abby-red-deep); }
+.audio-bars { height: 18px; display: flex; align-items: center; gap: 2px; }
+.audio-bars i { width: 3px; height: 8px; border-radius: 3px; background: currentColor; animation: audio-bar .8s infinite ease-in-out; }
+.audio-bars i:nth-child(2) { height: 15px; animation-delay: .15s; }
+.audio-bars i:nth-child(3) { animation-delay: .3s; }
+.patient-thinking { display: flex; gap: 5px; padding: 18px 20px; }
+.patient-thinking i { width: 7px; height: 7px; border-radius: 50%; background: #9c9188; animation: patient-thinking 1s infinite ease-in-out; }
+.patient-thinking i:nth-child(2) { animation-delay: .13s; }
+.patient-thinking i:nth-child(3) { animation-delay: .26s; }
+.patient-input-dock { z-index: 4; display: grid; gap: 9px; padding: 8px 14px max(10px, env(safe-area-inset-bottom)); border-top: 1px solid var(--abby-line); background: rgba(255, 255, 255, .96); backdrop-filter: blur(20px); }
+.patient-suggestions { display: flex; gap: 8px; overflow-x: auto; padding: 3px 1px; scrollbar-width: none; }
+.patient-suggestions::-webkit-scrollbar { display: none; }
+.patient-suggestions button { flex: 0 0 auto; min-height: 42px; border: 1px solid #ead0cd; border-radius: 999px; padding: 0 15px; background: #fff9f7; color: #9f2f2a; font: inherit; font-size: 14px; font-weight: 750; cursor: pointer; }
+.patient-composer { display: grid; grid-template-columns: 48px minmax(0, 1fr) 42px; align-items: end; gap: 8px; border: 1px solid #dfd9d3; border-radius: 27px; padding: 5px; background: #fff; box-shadow: 0 8px 30px rgba(41, 31, 24, .08); }
+.patient-composer label { min-width: 0; }
+.patient-composer textarea { width: 100%; max-height: 110px; resize: none; border: 0; padding: 10px 4px 9px; background: transparent; color: var(--abby-ink); font: inherit; font-size: 16px; line-height: 1.35; outline: none; }
+.patient-voice-button, .patient-send-button { border: 0; border-radius: 50%; display: grid; place-items: center; cursor: pointer; }
+.patient-voice-button { width: 48px; height: 48px; background: #fff0ee; color: var(--abby-red); }
+.patient-send-button { width: 42px; height: 42px; background: var(--abby-red); color: #fff; }
+.patient-send-button:disabled { opacity: .32; }
+.voice-invitation { justify-self: center; display: flex; align-items: center; gap: 5px; border: 0; background: transparent; color: #756e68; font: inherit; font-size: 11px; cursor: pointer; }
+.patient-chat-error { padding: 9px 12px; border-radius: 11px; background: #fff0ed; color: #9a2d27; font-size: 13px; }
+
+.patient-voice-room { position: fixed !important; z-index: 100; inset: 0; background: #171311; color: white; }
+.patient-voice-experience { min-height: 100dvh; display: grid; grid-template-rows: auto 1fr auto; background: radial-gradient(circle at 50% 42%, #40211e 0, #211715 36%, #120f0e 72%); }
+.patient-voice-header { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: 10px; padding: 14px 18px; }
+.patient-voice-header button { width: 42px; height: 42px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.12); border-radius: 50%; background: rgba(255,255,255,.07); color: white; }
+.patient-voice-header div { display: grid; text-align: center; }
+.patient-voice-header div span { display: flex; justify-content: center; align-items: center; gap: 4px; margin-top: 3px; color: #c9bbb5; font-size: 11px; }
+.voice-connection-dot { justify-self: center; width: 9px; height: 9px; border-radius: 50%; background: #82d99c; box-shadow: 0 0 0 6px rgba(130,217,156,.1); }
+.patient-voice-stage { display: grid; align-content: center; justify-items: center; gap: 14px; padding: 30px; text-align: center; }
+.patient-voice-orb { width: min(62vw, 260px); aspect-ratio: 1; display: grid; place-items: center; border-radius: 50%; background: radial-gradient(circle at 34% 26%, #ff8179, var(--abby-red) 46%, #9d211e 100%); box-shadow: 0 0 0 18px rgba(230,56,50,.08), 0 30px 90px rgba(230,56,50,.3); --lk-fg: #fff; --lk-va-bg: rgba(255,255,255,.25); animation: patient-voice-breathe 3s infinite ease-in-out; }
+.patient-voice-orb.speaking { animation-duration: 1.3s; }
+.patient-voice-orb .lk-audio-visualizer { width: 42%; height: 30%; gap: 5px; }
+.patient-voice-stage h1 { margin: 16px 0 0; color: white; font-size: 28px; letter-spacing: -.035em; }
+.patient-voice-stage p { max-width: 430px; min-height: 48px; margin: 0; color: #d3c7c1; font-size: 16px; line-height: 1.5; }
+.patient-voice-controls { display: grid; justify-items: center; gap: 7px; padding: 18px 18px max(26px, env(safe-area-inset-bottom)); }
+.patient-voice-controls > span { color: #a99d97; font-size: 11px; }
+.patient-voice-controls .lk-control-bar { border: 0; background: transparent; }
+.patient-voice-controls .lk-button { width: 68px; height: 68px; border: 1px solid rgba(255,255,255,.16); border-radius: 50%; background: rgba(255,255,255,.1); color: white; }
+.voice-loading-screen { position: fixed; z-index: 100; inset: 0; display: grid; align-content: center; justify-items: center; gap: 14px; padding: 30px; background: #171311; color: white; text-align: center; }
+.voice-loading-screen img { width: 82px; border-radius: 50%; }
+.voice-loading-screen h1 { margin: 8px 0 0; font-size: 27px; }
+.voice-loading-screen p { max-width: 360px; margin: 0; color: #c5b9b2; }
+.voice-loading-screen button { min-height: 48px; margin-top: 8px; border: 0; border-radius: 999px; padding: 0 20px; background: white; color: #211; font: inherit; font-weight: 800; }
+.voice-loading-orb { width: 90px; height: 90px; display: flex; align-items: center; justify-content: center; gap: 5px; border-radius: 50%; background: var(--abby-red); }
+.voice-loading-orb span { width: 6px; height: 18px; border-radius: 5px; background: white; animation: audio-bar .8s infinite; }
+.voice-loading-orb span:nth-child(2) { height: 32px; animation-delay: .15s; }
+.voice-loading-orb span:nth-child(3) { animation-delay: .3s; }
+
+@media (min-width: 761px) {
+  body:has(.patient-app-shell) { background: var(--abby-cream); }
+  .patient-app-shell { min-height: calc(100dvh - 32px); max-height: calc(100dvh - 32px); margin: 16px auto; border: 1px solid rgba(100,76,60,.13); border-radius: 28px; overflow: hidden; }
+}
+@media (max-width: 520px) {
+  .patient-entry-page { padding: 0; align-items: stretch; }
+  .patient-entry-card { min-height: 100dvh; display: flex; flex-direction: column; justify-content: center; border: 0; border-radius: 0; box-shadow: none; }
+  .patient-app-header { padding-inline: 14px; }
+  .patient-plan-strip { padding-inline: 16px; }
+  .patient-thread { padding-inline: 13px; }
+  .patient-message { max-width: 96%; }
+  .patient-message-bubble { padding: 13px 14px; }
+  .patient-input-dock { padding-inline: 9px; }
+  .patient-suggestions button { min-height: 44px; }
+  .voice-invitation { font-size: 10px; }
+}
+@keyframes patient-breathe { 50% { transform: scale(1.05); box-shadow: 0 0 0 16px rgba(230,56,50,.08); } }
+@keyframes patient-voice-breathe { 50% { transform: scale(1.035); box-shadow: 0 0 0 26px rgba(230,56,50,.06), 0 35px 100px rgba(230,56,50,.38); } }
+@keyframes patient-thinking { 0%, 80%, 100% { transform: translateY(0); opacity: .4; } 40% { transform: translateY(-4px); opacity: 1; } }
+@keyframes audio-bar { 50% { transform: scaleY(.45); } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }

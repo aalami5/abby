@@ -44,7 +44,7 @@ declare const process: {
 }
 
 const anthropicVersion = '2023-06-01'
-const defaultModel = 'claude-sonnet-5'
+const defaultModel = 'claude-sonnet-4-6'
 
 export default async function handler(request: VercelRequest, response: VercelResponse) {
   if (request.method !== 'POST') {

@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, Bot, ClipboardList, Send, Sparkles, Stethoscope, UserRound } from 'lucide-react'
+import { AlertTriangle, Bot, ClipboardList, ExternalLink, Send, Sparkles, Stethoscope, UserRound } from 'lucide-react'
 import type { AbbyCase, AbbyRun, DirectoryResponse } from './types'
 import { buildChatContext, initialAbbyMessage, type AbbyChatMessage } from './chatTypes'
 import { sendChatMessage } from './apiClient'
@@ -152,6 +152,14 @@ export function PatientChat({ abbyCase, directory, run, onLaunch, isRunBusy }: P
             <ClipboardList size={16} /> {run ? 'Refresh brief' : 'Prepare brief'}
           </button>
         </div>
+        <a
+          className="open-patient-app"
+          href={`/care/${encodeURIComponent(abbyCase.record.metadata.patient_id)}`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <ExternalLink size={16} /> Open private patient experience
+        </a>
       </aside>
     </section>
   )

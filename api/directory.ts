@@ -279,7 +279,7 @@ async function sendOtp(phone: string, _code: string) {
   if (!hasTwilioVerify()) return
   const accountSid = process.env.TWILIO_ACCOUNT_SID ?? ''
   const authToken = process.env.TWILIO_AUTH_TOKEN ?? ''
-  const verifySid = process.env.TWILIO_VERIFY_SERVICE_SID ?? ''
+  const verifySid = process.env.TWILIO_VERIFY_SERVICE_SID_ABBY ?? process.env.TWILIO_VERIFY_SERVICE_SID ?? ''
   const twilioResponse = await fetch(`https://verify.twilio.com/v2/Services/${verifySid}/Verifications`, {
     method: 'POST',
     headers: {
@@ -294,7 +294,7 @@ async function sendOtp(phone: string, _code: string) {
 async function verifyOtp(phone: string, code: string) {
   const accountSid = process.env.TWILIO_ACCOUNT_SID ?? ''
   const authToken = process.env.TWILIO_AUTH_TOKEN ?? ''
-  const verifySid = process.env.TWILIO_VERIFY_SERVICE_SID ?? ''
+  const verifySid = process.env.TWILIO_VERIFY_SERVICE_SID_ABBY ?? process.env.TWILIO_VERIFY_SERVICE_SID ?? ''
   const twilioResponse = await fetch(`https://verify.twilio.com/v2/Services/${verifySid}/VerificationCheck`, {
     method: 'POST',
     headers: {
@@ -308,5 +308,9 @@ async function verifyOtp(phone: string, code: string) {
 }
 
 function hasTwilioVerify() {
-  return Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_VERIFY_SERVICE_SID)
+  return Boolean(
+    process.env.TWILIO_ACCOUNT_SID
+    && process.env.TWILIO_AUTH_TOKEN
+    && (process.env.TWILIO_VERIFY_SERVICE_SID_ABBY || process.env.TWILIO_VERIFY_SERVICE_SID),
+  )
 }

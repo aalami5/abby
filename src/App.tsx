@@ -120,10 +120,7 @@ function App() {
       <aside className="sidebar">
         <div className={`brand ${view === 'admin' ? 'brand-only' : ''}`}>
           <div className="brand-mark" aria-label="Abby logo">
-            <span className="brand-letter brand-a">A</span>
-            <span className="brand-letter">B</span>
-            <span className="brand-letter">B</span>
-            <span className="brand-letter brand-y">Y</span>
+            <img className="brand-wordmark" src="/brand/abby-wordmark.png" alt="Abby" />
           </div>
           <div className="brand-copy">
             <strong>Abby</strong>

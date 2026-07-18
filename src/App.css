@@ -89,6 +89,13 @@
   box-shadow: none;
 }
 
+.brand-wordmark {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: left center;
+}
+
 .brand .brand-letter {
   font-size: 30px;
   line-height: 1;
@@ -492,6 +499,22 @@ select {
 
 .chat-run-summary {
   margin-bottom: 0;
+}
+
+.open-patient-app {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+  border: 1px solid #e8b8b3;
+  border-radius: 8px;
+  background: #fff5f3;
+  color: #a82822;
+  font-size: 13px;
+  font-weight: 850;
+  text-decoration: none;
 }
 
 @keyframes typing-pulse {
