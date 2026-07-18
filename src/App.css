@@ -75,34 +75,23 @@
 }
 
 .brand-mark {
-  width: 112px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   position: relative;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1px;
-  border-radius: 8px;
+  border-radius: 999px;
   background: #ffffff;
-  color: var(--abridge);
-  box-shadow: none;
+  box-shadow: 0 10px 22px rgba(181, 28, 8, 0.12);
 }
 
-.brand .brand-letter {
-  font-size: 30px;
-  line-height: 1;
-  font-weight: 950;
-  letter-spacing: 0;
-  color: var(--abridge);
-}
-
-.brand-a {
-  transform: skewX(-4deg);
-}
-
-.brand-y {
-  margin-left: -1px;
+.brand-mark img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
 }
 
 .brand span,
@@ -1422,12 +1411,8 @@ input {
   }
 
   .brand-mark {
-    width: 88px;
-    height: 34px;
-  }
-
-  .brand .brand-letter {
-    font-size: 23px;
+    width: 42px;
+    height: 42px;
   }
 
   .brand strong {
