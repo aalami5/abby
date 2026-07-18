@@ -1615,6 +1615,11 @@ textarea {
   cursor: pointer;
 }
 
+.quiet-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
 .patient-detail-panel {
   position: sticky;
   top: 102px;

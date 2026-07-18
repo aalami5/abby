@@ -7,6 +7,14 @@ type RunsResponse = {
   runsByCase: Record<string, AbbyRun>
 }
 
+type CheckInResponse = {
+  mode: 'twilio' | 'demo'
+  status: string
+  message: string
+  twilioMessageSid?: string
+  detail?: string
+}
+
 const localRunsStorageKey = 'abby.demo.runs'
 const localDirectoryStorageKey = 'abby.demo.directory'
 const seededAt = '2026-07-18T19:30:00Z'
@@ -147,6 +155,22 @@ export async function sendChatMessage(input: { messages: AbbyChatMessage[]; cont
   return requestJson<AbbyChatResponse>('/api/chat', {
     method: 'POST',
     body: JSON.stringify(input),
+  })
+}
+
+export async function sendPatientCheckIn(input: {
+  patient: DirectoryPerson
+  provider?: DirectoryPerson
+}): Promise<CheckInResponse> {
+  return requestJson<CheckInResponse>('/api/check-in', {
+    method: 'POST',
+    body: JSON.stringify({
+      patientId: input.patient.id,
+      patientName: input.patient.name,
+      patientPhone: input.patient.phone,
+      providerName: input.provider?.id === 'person-oliver-aalami' ? 'Dr. Oliver Aalami' : (input.provider?.name ?? 'Dr. Oliver Aalami'),
+      specialty: input.provider?.specialty ?? 'Vascular Surgery',
+    }),
   })
 }
 

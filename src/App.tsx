@@ -22,7 +22,6 @@ import {
 import './App.css'
 import { buildCase, loadRecords } from './abbyEngine'
 import { PatientChat } from './PatientChat'
-import { chatStorageKey, initialAbbyMessage, providerPreVisitMessage, type AbbyChatMessage } from './chatTypes'
 import {
   approveCloudRun,
   executeCloudRun,
@@ -30,6 +29,7 @@ import {
   loadDirectory,
   loadRuns,
   saveDirectoryPerson,
+  sendPatientCheckIn,
 } from './apiClient'
 import type { AbbyCase, AbbyRun, DirectoryPerson, DirectoryResponse, DirectoryRole, EncounterRecord } from './types'
 
@@ -334,7 +334,6 @@ function App() {
             onApprove={approveActiveRun}
             onExecute={executeActiveRun}
             isRunBusy={isRunBusy}
-            records={records}
             onOpenPatient={(recordId) => {
               setSelectedId(recordId)
               setView('patient')
@@ -958,7 +957,6 @@ function ProviderView({
   onApprove,
   onExecute,
   isRunBusy,
-  records,
   onOpenPatient,
 }: {
   directory: DirectoryResponse
@@ -968,7 +966,6 @@ function ProviderView({
   onApprove: () => void
   onExecute: () => void
   isRunBusy: boolean
-  records: EncounterRecord[]
   onOpenPatient: (recordId: string) => void
 }) {
   const providers = directory.people.filter((person) => person.roles.includes('provider'))
@@ -981,6 +978,7 @@ function ProviderView({
   const [providerForm, setProviderForm] = useState(() => personToProviderForm(selectedProvider))
   const [providerMessage, setProviderMessage] = useState('')
   const [preVisitStatusByPatient, setPreVisitStatusByPatient] = useState<Record<string, string>>({})
+  const [busyCheckIns, setBusyCheckIns] = useState<Record<string, boolean>>({})
   const [isProviderSaving, setIsProviderSaving] = useState(false)
 
   useEffect(() => {
@@ -1012,25 +1010,23 @@ function ProviderView({
     }
   }
 
-  const initiatePreVisit = (patient: DirectoryPerson) => {
-    if (!patient.sourceRecordId) return
-    const record = records.find((candidate) => candidate.id === patient.sourceRecordId)
-    if (!record) {
-      setPreVisitStatusByPatient((current) => ({ ...current, [patient.id]: 'Synthetic record unavailable' }))
-      return
+  const startCheckIn = async (patient: DirectoryPerson) => {
+    setBusyCheckIns((current) => ({ ...current, [patient.id]: true }))
+    setPreVisitStatusByPatient((current) => ({ ...current, [patient.id]: 'Sending check-in...' }))
+    try {
+      const result = await sendPatientCheckIn({ patient, provider: selectedProvider })
+      const status = result.mode === 'twilio'
+        ? `Twilio SMS ${result.status}`
+        : 'Demo message ready; configure Twilio to send'
+      setPreVisitStatusByPatient((current) => ({ ...current, [patient.id]: status }))
+    } catch (error) {
+      setPreVisitStatusByPatient((current) => ({
+        ...current,
+        [patient.id]: error instanceof Error ? error.message : String(error),
+      }))
+    } finally {
+      setBusyCheckIns((current) => ({ ...current, [patient.id]: false }))
     }
-
-    const nextCase = buildCase(record)
-    const storageKey = chatStorageKey(record.id)
-    const preVisitMessage = providerPreVisitMessage(nextCase, selectedProvider)
-    const fallbackMessage = initialAbbyMessage(nextCase, selectedProvider)
-    const storedMessages = readChatThread(storageKey)
-    const existingMessages = storedMessages.length ? storedMessages : [fallbackMessage]
-    const hasPreVisitMessage = existingMessages.some((message) => message.id === preVisitMessage.id)
-    const nextMessages = hasPreVisitMessage ? existingMessages : [preVisitMessage, ...existingMessages.filter((message) => message.id !== fallbackMessage.id)]
-
-    window.localStorage.setItem(storageKey, JSON.stringify(nextMessages))
-    setPreVisitStatusByPatient((current) => ({ ...current, [patient.id]: hasPreVisitMessage ? 'Pre-visit already initiated' : 'Pre-visit sent to patient chat' }))
   }
 
   if (!selectedProvider) {
@@ -1121,16 +1117,21 @@ function ProviderView({
                 {preVisitStatusByPatient[patient.id] && <small>{preVisitStatusByPatient[patient.id]}</small>}
               </div>
               <span>{patient.birthDate ? `${ageFromBirthDate(patient.birthDate)} yrs` : 'Age unknown'}</span>
-              {patient.sourceRecordId && (
-                <div className="provider-patient-actions">
-                  <button type="button" className="quiet-button" onClick={() => initiatePreVisit(patient)}>
-                    <Send size={15} /> Initiate pre-visit
-                  </button>
+              <div className="provider-patient-actions">
+                <button
+                  type="button"
+                  className="quiet-button"
+                  onClick={() => startCheckIn(patient)}
+                  disabled={busyCheckIns[patient.id]}
+                >
+                  <Send size={15} /> Start check-in
+                </button>
+                {patient.sourceRecordId && (
                   <button type="button" className="quiet-button" onClick={() => onOpenPatient(patient.sourceRecordId ?? '')}>
                     Open chat
                   </button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           ))}
           {!assignedPatients.length && (
@@ -1181,17 +1182,6 @@ function ProviderView({
       </div>
     </section>
   )
-}
-
-function readChatThread(storageKey: string): AbbyChatMessage[] {
-  const stored = window.localStorage.getItem(storageKey)
-  if (!stored) return []
-  try {
-    const parsed = JSON.parse(stored) as AbbyChatMessage[]
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
 }
 
 function personToProviderForm(person?: DirectoryPerson) {

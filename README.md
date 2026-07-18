@@ -60,9 +60,10 @@ https://abby-mocha.vercel.app/api/capabilities
 https://abby-mocha.vercel.app/api/runs
 https://abby-mocha.vercel.app/api/directory
 https://abby-mocha.vercel.app/api/chat
+https://abby-mocha.vercel.app/api/check-in
 ```
 
-Run state uses the `/api/runs` lifecycle API. Admin, provider, patient, and OTP state use `/api/directory`. Patient chat uses `/api/chat`, which calls Claude server-side. In production, the APIs use Google Cloud Firestore when the Google service-account environment variables are configured; otherwise they fall back to serverless memory, which is enough to prove the flow but not durable across cold starts.
+Run state uses the `/api/runs` lifecycle API. Admin, provider, patient, and OTP state use `/api/directory`. Patient chat uses `/api/chat`, which calls Claude server-side. Patient check-in texts use `/api/check-in`, which calls Twilio Messaging server-side when messaging credentials are configured and otherwise returns a demo not-sent response. In production, the APIs use Google Cloud Firestore when the Google service-account environment variables are configured; otherwise they fall back to serverless memory, which is enough to prove the flow but not durable across cold starts.
 
 ## Data
 
@@ -106,3 +107,14 @@ TWILIO_VERIFY_SERVICE_SID_ABBY
 ```
 
 `TWILIO_VERIFY_SERVICE_SID` is also accepted as a fallback.
+
+Optional Twilio check-in SMS env vars:
+
+```text
+TWILIO_ACCOUNT_SID
+TWILIO_AUTH_TOKEN
+TWILIO_MESSAGING_SERVICE_SID_ABBY
+TWILIO_FROM_NUMBER_ABBY
+```
+
+`TWILIO_MESSAGING_SERVICE_SID` and `TWILIO_FROM_NUMBER` are also accepted as fallbacks. Provide either a Messaging Service SID or a From number.
