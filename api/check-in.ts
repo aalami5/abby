@@ -4,6 +4,7 @@ type CheckInRequest = {
   patientPhone?: string
   providerName?: string
   specialty?: string
+  chatUrl?: string
 }
 
 type TwilioMessagingConfig = {
@@ -79,7 +80,11 @@ export default async function handler(request: VercelRequest, response: VercelRe
 
 function buildCheckInMessage(body: CheckInRequest & { patientPhone: string; specialty: string }): string {
   const providerName = body.providerName?.trim() || 'Dr. Oliver Aalami'
-  return `Hello, this is ${providerName}'s assistant, Abby, checking in before your ${body.specialty} visit.`
+  const greeting = body.patientName ? `Hi ${firstName(body.patientName)},` : 'Hello,'
+  const invite = `this is Abby, ${providerName}'s assistant. Please start your quick ${body.specialty} check-in`
+  return body.chatUrl
+    ? `${greeting} ${invite} here: ${body.chatUrl}`
+    : `${greeting} ${invite} before your visit.`
 }
 
 function parseBody(body: unknown) {
@@ -98,7 +103,18 @@ function normalizeCheckIn(value: Record<string, unknown>): CheckInRequest & { pa
     patientPhone,
     providerName: typeof value.providerName === 'string' ? value.providerName.trim() : undefined,
     specialty,
+    chatUrl: normalizeUrl(value.chatUrl),
   }
+}
+
+function firstName(name: string): string {
+  return name.trim().split(/\s+/)[0] || name
+}
+
+function normalizeUrl(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim()
+  return /^https?:\/\/\S+$/i.test(trimmed) ? trimmed : undefined
 }
 
 function normalizePhone(value: unknown): string {

@@ -129,8 +129,10 @@ function App() {
     async function initialize() {
       try {
         const [loadedRecords, loadedRuns, loadedDirectory] = await Promise.all([loadRecords(), loadRuns(), loadDirectory()])
+        const deepLink = patientChatDeepLink(loadedRecords)
         setRecords(loadedRecords)
-        setSelectedId(loadedRecords[1]?.id ?? loadedRecords[0]?.id ?? '')
+        setSelectedId(deepLink.recordId ?? loadedRecords[1]?.id ?? loadedRecords[0]?.id ?? '')
+        if (deepLink.openPatientChat) setSelectedRole('patient')
         setRunsByCase(loadedRuns.runsByCase)
         setPersistence(loadedRuns.persistence)
         setDirectory(loadedDirectory)
@@ -947,6 +949,16 @@ function ageFromBirthDate(birthDate: string): number {
   const monthDelta = now.getMonth() - birth.getMonth()
   if (monthDelta < 0 || (monthDelta === 0 && now.getDate() < birth.getDate())) age -= 1
   return age
+}
+
+function patientChatDeepLink(records: EncounterRecord[]): { recordId?: string; openPatientChat: boolean } {
+  const params = new URLSearchParams(window.location.search)
+  const requestedRecordId = params.get('patient') || params.get('recordId') || params.get('caseId') || ''
+  const recordId = records.some((record) => record.id === requestedRecordId) ? requestedRecordId : undefined
+  return {
+    recordId,
+    openPatientChat: params.get('role') === 'patient' || params.get('view') === 'patient' || params.get('view') === 'chat',
+  }
 }
 
 function ProviderView({

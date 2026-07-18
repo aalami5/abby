@@ -170,8 +170,17 @@ export async function sendPatientCheckIn(input: {
       patientPhone: input.patient.phone,
       providerName: input.provider?.id === 'person-oliver-aalami' ? 'Dr. Oliver Aalami' : (input.provider?.name ?? 'Dr. Oliver Aalami'),
       specialty: input.provider?.specialty ?? 'Vascular Surgery',
+      chatUrl: patientChatUrl(input.patient),
     }),
   })
+}
+
+function patientChatUrl(patient: DirectoryPerson): string | undefined {
+  if (!patient.sourceRecordId || typeof window === 'undefined') return undefined
+  const url = new URL(window.location.origin)
+  url.searchParams.set('role', 'patient')
+  url.searchParams.set('patient', patient.sourceRecordId)
+  return url.toString()
 }
 
 export async function loadDirectory(): Promise<DirectoryResponse> {

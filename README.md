@@ -63,7 +63,7 @@ https://abby-mocha.vercel.app/api/chat
 https://abby-mocha.vercel.app/api/check-in
 ```
 
-Run state uses the `/api/runs` lifecycle API. Admin, provider, patient, and OTP state use `/api/directory`. Patient chat uses `/api/chat`, which calls Claude server-side. Patient check-in texts use `/api/check-in`, which calls Twilio Messaging server-side when messaging credentials are configured and otherwise returns a demo not-sent response. In production, the APIs use Google Cloud Firestore when the Google service-account environment variables are configured; otherwise they fall back to serverless memory, which is enough to prove the flow but not durable across cold starts.
+Run state uses the `/api/runs` lifecycle API. Admin, provider, patient, and OTP state use `/api/directory`. Patient chat uses `/api/chat`, which calls Claude server-side. Patient check-in texts use `/api/check-in`, which calls Twilio Messaging server-side when messaging credentials are configured and otherwise returns a demo not-sent response. The initial check-in SMS is intentionally warm and concise, uses the patient first name, and points record-backed patients to a direct chat URL such as `/?role=patient&patient=<recordId>`. In production, the APIs use Google Cloud Firestore when the Google service-account environment variables are configured; otherwise they fall back to serverless memory, which is enough to prove the flow but not durable across cold starts.
 
 ## Data
 
