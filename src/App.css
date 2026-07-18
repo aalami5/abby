@@ -1759,7 +1759,7 @@ textarea {
 .provider-patient-row {
   min-height: 68px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(168px, auto);
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.7fr) minmax(168px, auto);
   align-items: center;
   gap: 12px;
   padding: 12px;
@@ -1792,6 +1792,31 @@ textarea {
   color: var(--abridge);
   font-size: 12px;
   font-weight: 900;
+}
+
+.provider-phone-editor {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+
+.provider-phone-editor label {
+  display: grid;
+  gap: 5px;
+}
+
+.provider-phone-editor label span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.provider-phone-editor input {
+  min-height: 38px;
+  padding: 6px 9px;
 }
 
 .provider-patient-actions {
@@ -2281,6 +2306,10 @@ textarea {
   .provider-patient-row {
     grid-template-columns: 1fr;
     align-items: start;
+  }
+
+  .provider-phone-editor {
+    grid-template-columns: 1fr;
   }
 
   .patient-form-grid {

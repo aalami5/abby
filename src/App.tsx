@@ -1126,14 +1126,19 @@ function ProviderView({
   const defaultProvider = providers.find((person) => person.id === 'person-oliver-aalami') ?? providers[0]
   const [selectedProviderId, setSelectedProviderId] = useState(defaultProvider?.id ?? '')
   const selectedProvider = providers.find((provider) => provider.id === selectedProviderId) ?? defaultProvider
-  const assignedPatients = selectedProvider
-    ? directory.people.filter((person) => person.roles.includes('patient') && person.primaryProviderId === selectedProvider.id)
-    : []
+  const assignedPatients = useMemo(
+    () => selectedProvider
+      ? directory.people.filter((person) => person.roles.includes('patient') && person.primaryProviderId === selectedProvider.id)
+      : [],
+    [directory.people, selectedProvider],
+  )
   const [providerForm, setProviderForm] = useState(() => personToProviderForm(selectedProvider))
   const [providerMessage, setProviderMessage] = useState('')
   const [checkInNotice, setCheckInNotice] = useState('')
+  const [patientPhoneDrafts, setPatientPhoneDrafts] = useState<Record<string, string>>({})
   const [preVisitStatusByPatient, setPreVisitStatusByPatient] = useState<Record<string, string>>({})
   const [busyCheckIns, setBusyCheckIns] = useState<Record<string, boolean>>({})
+  const [busyPhoneSaves, setBusyPhoneSaves] = useState<Record<string, boolean>>({})
   const [isProviderSaving, setIsProviderSaving] = useState(false)
 
   useEffect(() => {
@@ -1147,6 +1152,16 @@ function ProviderView({
     const timeout = window.setTimeout(() => setCheckInNotice(''), 2200)
     return () => window.clearTimeout(timeout)
   }, [checkInNotice])
+
+  useEffect(() => {
+    setPatientPhoneDrafts((current) => {
+      const next = { ...current }
+      for (const patient of assignedPatients) {
+        if (!(patient.id in next)) next[patient.id] = patient.phone
+      }
+      return next
+    })
+  }, [assignedPatients])
 
   const saveProvider = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -1171,11 +1186,41 @@ function ProviderView({
     }
   }
 
+  const phoneDraftForPatient = (patient: DirectoryPerson) => patientPhoneDrafts[patient.id] ?? patient.phone
+
+  const persistPatientPhone = async (patient: DirectoryPerson): Promise<DirectoryPerson> => {
+    const nextPhone = phoneDraftForPatient(patient)
+    if (nextPhone.trim() === patient.phone.trim()) return patient
+    const nextDirectory = await saveDirectoryPerson({ ...patient, phone: nextPhone })
+    onDirectoryChange(nextDirectory)
+    const savedPatient = nextDirectory.people.find((person) => person.id === patient.id) ?? { ...patient, phone: nextPhone }
+    setPatientPhoneDrafts((current) => ({ ...current, [patient.id]: savedPatient.phone }))
+    return savedPatient
+  }
+
+  const savePatientPhone = async (patient: DirectoryPerson) => {
+    setBusyPhoneSaves((current) => ({ ...current, [patient.id]: true }))
+    setPreVisitStatusByPatient((current) => ({ ...current, [patient.id]: 'Saving phone...' }))
+    try {
+      await persistPatientPhone(patient)
+      setPreVisitStatusByPatient((current) => ({ ...current, [patient.id]: 'Phone saved' }))
+      setCheckInNotice('Phone saved')
+    } catch (error) {
+      setPreVisitStatusByPatient((current) => ({
+        ...current,
+        [patient.id]: error instanceof Error ? error.message : String(error),
+      }))
+    } finally {
+      setBusyPhoneSaves((current) => ({ ...current, [patient.id]: false }))
+    }
+  }
+
   const startCheckIn = async (patient: DirectoryPerson) => {
     setBusyCheckIns((current) => ({ ...current, [patient.id]: true }))
     setPreVisitStatusByPatient((current) => ({ ...current, [patient.id]: 'Sending check-in...' }))
     try {
-      const result = await sendPatientCheckIn({ patient, provider: selectedProvider })
+      const savedPatient = await persistPatientPhone(patient)
+      const result = await sendPatientCheckIn({ patient: savedPatient, provider: selectedProvider })
       const status = result.mode === 'twilio'
         ? `Twilio SMS ${result.status}`
         : 'Demo message ready; configure Twilio to send'
@@ -1279,7 +1324,24 @@ function ProviderView({
                 <span>{patient.visitTitle ?? 'Patient'}</span>
                 {preVisitStatusByPatient[patient.id] && <small>{preVisitStatusByPatient[patient.id]}</small>}
               </div>
-              <span>{patient.birthDate ? `${ageFromBirthDate(patient.birthDate)} yrs` : 'Age unknown'}</span>
+              <div className="provider-phone-editor">
+                <label>
+                  <span>Cell phone</span>
+                  <input
+                    value={phoneDraftForPatient(patient)}
+                    onChange={(event) => setPatientPhoneDrafts((current) => ({ ...current, [patient.id]: event.target.value }))}
+                    placeholder="+1 650 555 0100"
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="quiet-button"
+                  onClick={() => savePatientPhone(patient)}
+                  disabled={busyPhoneSaves[patient.id] || phoneDraftForPatient(patient).trim() === patient.phone.trim()}
+                >
+                  <Save size={15} /> Save phone
+                </button>
+              </div>
               <div className="provider-patient-actions">
                 <button
                   type="button"
