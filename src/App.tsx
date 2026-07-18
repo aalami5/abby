@@ -34,18 +34,17 @@ import {
 import type { AbbyCase, AbbyRun, DirectoryPerson, DirectoryResponse, DirectoryRole, EncounterRecord } from './types'
 
 type View = 'admin' | 'patient' | 'provider'
-type AdminSection = 'users' | 'patients'
+type AdminSection = 'users' | 'patients' | 'settings'
 type DirectoryUserFilter = 'providers' | 'patients' | 'admins'
 
 const menuItems: Array<
-  | { id: 'users' | 'patients' | 'chat' | 'brief'; label: string; icon: LucideIcon }
-  | { id: 'settings'; label: string; icon: LucideIcon; disabled: true }
+  { id: 'users' | 'patients' | 'chat' | 'brief' | 'settings'; label: string; icon: LucideIcon }
 > = [
   { id: 'users', label: 'Users', icon: UsersRound },
   { id: 'patients', label: 'Patients', icon: UserRound },
   { id: 'chat', label: 'Patient chat', icon: MessageSquareText },
   { id: 'brief', label: 'Abby Instructions', icon: Stethoscope },
-  { id: 'settings', label: 'Settings', icon: Settings, disabled: true },
+  { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
 const directoryRoleOptions: Array<{ value: DirectoryRole; label: string }> = [
@@ -148,6 +147,7 @@ function App() {
   const navItems = useMemo(
     () => {
       if (selectedRole === 'patient') return menuItems.filter((item) => item.id === 'chat')
+      if (selectedRole === 'admin') return menuItems.filter((item) => item.id === 'users' || item.id === 'settings')
       return menuItems.filter((item) => item.id !== 'brief' || selectedRole === 'provider')
     },
     [selectedRole],
@@ -156,6 +156,11 @@ function App() {
   useEffect(() => {
     if (selectedRole === 'patient' && view !== 'patient') {
       setView('patient')
+      return
+    }
+    if (selectedRole === 'admin' && view !== 'admin') {
+      setView('admin')
+      setAdminSection('users')
       return
     }
     if (view === 'provider' && selectedRole !== 'provider') {
@@ -230,11 +235,11 @@ function App() {
               (item.id === 'users' && view === 'admin' && adminSection === 'users') ||
               (item.id === 'patients' && view === 'admin' && adminSection === 'patients') ||
               (item.id === 'chat' && view === 'patient') ||
-              (item.id === 'brief' && view === 'provider')
+              (item.id === 'brief' && view === 'provider') ||
+              (item.id === 'settings' && view === 'admin' && adminSection === 'settings')
             )
             const selectItem = () => {
-              if ('disabled' in item) return
-              if (item.id === 'users' || item.id === 'patients') {
+              if (item.id === 'users' || item.id === 'patients' || item.id === 'settings') {
                 setAdminSection(item.id)
                 setView('admin')
                 return
@@ -257,7 +262,6 @@ function App() {
                 type="button"
                 className={active ? 'active' : ''}
                 onClick={selectItem}
-                disabled={'disabled' in item}
                 title={item.label}
               >
                 <Icon size={19} />
@@ -638,6 +642,30 @@ function AdminView({
             onSubmit={saveSelectedPatient}
             onOpenPatient={onOpenPatient}
           />
+        </div>
+      )}
+
+      {adminSection === 'settings' && (
+        <div className="settings-workspace">
+          <div className="panel settings-panel">
+            <div className="panel-title-row">
+              <div>
+                <p className="eyebrow">Settings</p>
+                <h2>Workspace settings</h2>
+              </div>
+              <Settings size={20} />
+            </div>
+            <div className="settings-list">
+              <div>
+                <strong>Demo mode</strong>
+                <span>Abby is configured for the current portal demo.</span>
+              </div>
+              <div>
+                <strong>Patient messaging</strong>
+                <span>Pre-visit messages are routed into the selected patient's chat thread.</span>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </section>

@@ -1254,6 +1254,36 @@ meter {
   min-width: 0;
 }
 
+.settings-workspace {
+  max-width: 720px;
+}
+
+.settings-panel,
+.settings-list {
+  display: grid;
+  gap: 14px;
+}
+
+.settings-list > div {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fffaf7;
+}
+
+.settings-list strong {
+  color: var(--ink);
+  font-size: 15px;
+}
+
+.settings-list span {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
 .compact-patient-form {
   position: sticky;
   top: 102px;
