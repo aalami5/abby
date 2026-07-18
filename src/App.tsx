@@ -1,13 +1,11 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import {
-  Activity,
   Building2,
   CalendarCheck,
   Check,
   ChevronDown,
   ClipboardList,
   Database,
-  LayoutDashboard,
   LogOut,
   MessageSquareText,
   Pencil,
@@ -16,6 +14,7 @@ import {
   Settings,
   ShieldCheck,
   Stethoscope,
+  type LucideIcon,
   UsersRound,
   UserRound,
   X,
@@ -34,21 +33,18 @@ import {
 import type { AbbyCase, AbbyRun, DirectoryPerson, DirectoryResponse, DirectoryRole, EncounterRecord } from './types'
 
 type View = 'admin' | 'patient' | 'provider'
-type AdminSection = 'dashboard' | 'users' | 'patients'
+type AdminSection = 'users' | 'patients'
 type WorkspaceRole = 'admin' | 'coach' | 'kaiser'
 type DirectoryUserFilter = 'providers' | 'patients' | 'admins'
 
 const menuItems: Array<
-  | { id: 'dashboard' | 'users' | 'patients' | 'chat' | 'brief'; label: string; icon: typeof LayoutDashboard }
-  | { id: 'programs' | 'analytics' | 'settings'; label: string; icon: typeof LayoutDashboard; disabled: true }
+  | { id: 'users' | 'patients' | 'chat' | 'brief'; label: string; icon: LucideIcon }
+  | { id: 'settings'; label: string; icon: LucideIcon; disabled: true }
 > = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'users', label: 'Users', icon: UsersRound },
   { id: 'patients', label: 'Patients', icon: UserRound },
   { id: 'chat', label: 'Patient chat', icon: MessageSquareText },
   { id: 'brief', label: 'Provider brief', icon: Stethoscope },
-  { id: 'programs', label: 'Programs', icon: ClipboardList, disabled: true },
-  { id: 'analytics', label: 'Analytics', icon: Activity, disabled: true },
   { id: 'settings', label: 'Settings', icon: Settings, disabled: true },
 ]
 
@@ -71,16 +67,16 @@ const directoryFilterOptions: Array<{
 ]
 
 const workspaceRoleOptions: Array<{ value: WorkspaceRole; label: string; description: string }> = [
-  { value: 'admin', label: 'Admin', description: 'All programs' },
-  { value: 'coach', label: 'Coach', description: 'Assigned programs' },
-  { value: 'kaiser', label: 'Kaiser', description: 'Get Set dashboard' },
+  { value: 'admin', label: 'Admin', description: 'All access' },
+  { value: 'coach', label: 'Coach', description: 'Assigned patients' },
+  { value: 'kaiser', label: 'Kaiser', description: 'Get Set view' },
 ]
 
 function App() {
   const [records, setRecords] = useState<EncounterRecord[]>([])
   const [selectedId, setSelectedId] = useState('')
   const [view, setView] = useState<View>('admin')
-  const [adminSection, setAdminSection] = useState<AdminSection>('dashboard')
+  const [adminSection, setAdminSection] = useState<AdminSection>('users')
   const [selectedRole, setSelectedRole] = useState<WorkspaceRole>('admin')
   const [loadingError, setLoadingError] = useState('')
   const [runsByCase, setRunsByCase] = useState<Record<string, AbbyRun>>({})
@@ -172,7 +168,6 @@ function App() {
           {menuItems.map((item) => {
             const Icon = item.icon
             const active = (
-              (item.id === 'dashboard' && view === 'admin' && adminSection === 'dashboard') ||
               (item.id === 'users' && view === 'admin' && adminSection === 'users') ||
               (item.id === 'patients' && view === 'admin' && adminSection === 'patients') ||
               (item.id === 'chat' && view === 'patient') ||
@@ -180,7 +175,7 @@ function App() {
             )
             const selectItem = () => {
               if ('disabled' in item) return
-              if (item.id === 'dashboard' || item.id === 'users' || item.id === 'patients') {
+              if (item.id === 'users' || item.id === 'patients') {
                 setAdminSection(item.id)
                 setView('admin')
                 return
@@ -193,7 +188,7 @@ function App() {
                 setView('provider')
                 return
               }
-              setAdminSection('dashboard')
+              setAdminSection('users')
               setView('admin')
             }
 
@@ -396,7 +391,6 @@ function AdminView({
   const [patientMessage, setPatientMessage] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [isPatientSaving, setIsPatientSaving] = useState(false)
-  const users = directory.people
   const patients = directory.people.filter((person) => person.roles.includes('patient'))
   const providers = directory.people.filter((person) => person.roles.includes('provider'))
   const activeFilter = directoryFilterOptions.find((option) => option.value === userFilter) ?? directoryFilterOptions[0]
@@ -486,38 +480,6 @@ function AdminView({
 
   return (
     <section className="content-grid admin-clean-grid">
-      {adminSection === 'dashboard' && (
-        <div className="admin-dashboard-placeholder">
-          <div className="panel dashboard-intro">
-            <p className="eyebrow">Dashboard</p>
-            <h1>Welcome back.</h1>
-            <p>Platform overview for Abby.</p>
-          </div>
-          <div className="admin-metrics">
-            <div className="panel admin-metric-card">
-              <UsersRound size={22} />
-              <span>Total users</span>
-              <strong>{users.length}</strong>
-            </div>
-            <div className="panel admin-metric-card">
-              <ShieldCheck size={22} />
-              <span>Admins</span>
-              <strong>{adminCount(directory)}</strong>
-            </div>
-            <div className="panel admin-metric-card">
-              <Stethoscope size={22} />
-              <span>Providers</span>
-              <strong>{directory.counts.providers}</strong>
-            </div>
-            <div className="panel admin-metric-card">
-              <UserRound size={22} />
-              <span>Patients</span>
-              <strong>{directory.counts.patients}</strong>
-            </div>
-          </div>
-        </div>
-      )}
-
       {adminSection === 'users' && (
         <div className="admin-directory-workspace">
           <form className="panel person-form compact-patient-form" onSubmit={savePerson}>
