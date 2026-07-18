@@ -42,7 +42,7 @@ const menuItems: Array<
   { id: 'users', label: 'Users', icon: UsersRound },
   { id: 'patients', label: 'Patients', icon: UserRound },
   { id: 'chat', label: 'Patient chat', icon: MessageSquareText },
-  { id: 'brief', label: 'Provider', icon: Stethoscope },
+  { id: 'brief', label: 'Abby Instructions', icon: Stethoscope },
   { id: 'settings', label: 'Settings', icon: Settings, disabled: true },
 ]
 
@@ -143,6 +143,17 @@ function App() {
   const selectedRecord = useMemo(() => records.find((record) => record.id === selectedId) ?? records[0], [records, selectedId])
   const abbyCase = useMemo(() => (selectedRecord ? buildCase(selectedRecord) : null), [selectedRecord])
   const activeRun = abbyCase ? runsByCase[abbyCase.record.id] : undefined
+  const navItems = useMemo(
+    () => menuItems.filter((item) => item.id !== 'brief' || selectedRole === 'provider'),
+    [selectedRole],
+  )
+
+  useEffect(() => {
+    if (view === 'provider' && selectedRole !== 'provider') {
+      setView(selectedRole === 'patient' ? 'patient' : 'admin')
+      if (selectedRole === 'admin') setAdminSection('users')
+    }
+  }, [selectedRole, view])
 
   const applyRunResponse = (response: Awaited<ReturnType<typeof loadRuns>>) => {
     setRunsByCase(response.runsByCase)
@@ -204,7 +215,7 @@ function App() {
         </div>
 
         <nav className="nav" aria-label="Abby admin navigation">
-          {menuItems.map((item) => {
+          {navItems.map((item) => {
             const Icon = item.icon
             const active = (
               (item.id === 'users' && view === 'admin' && adminSection === 'users') ||
