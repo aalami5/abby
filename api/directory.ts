@@ -27,8 +27,21 @@ type DirectoryPerson = {
   updatedAt: string
 }
 
+type AgentInstructionReference = {
+  id: string
+  title: string
+  sourceFile: string
+  sourcePath: string
+  sourceUrl: string
+  audience: string
+  ownerPersonId: string
+  instructionField: 'abbyInstructions'
+  updatedAt: string
+}
+
 type DirectoryStore = {
   people: DirectoryPerson[]
+  agentInstructionReferences?: AgentInstructionReference[]
   otp: Record<string, { code: string; expiresAt: string; verifiedAt?: string }>
 }
 
@@ -57,7 +70,7 @@ declare const process: {
 
 const firestoreDocumentId = 'directory-v1'
 const seededAt = '2026-07-18T19:30:00Z'
-const store = ((globalThis as AbbyGlobal).abbyDirectoryStore ??= { people: seedPeople(), otp: {} })
+const store = ((globalThis as AbbyGlobal).abbyDirectoryStore ??= { people: seedPeople(), agentInstructionReferences: seedAgentInstructionReferences(), otp: {} })
 
 export default async function handler(request: VercelRequest, response: VercelResponse) {
   try {
@@ -134,6 +147,7 @@ function toResponse(current: DirectoryStore) {
     persistence: googlePersistenceLabel(),
     auth: hasTwilioVerify() ? 'twilio-verify' : 'mock-otp',
     people,
+    agentInstructionReferences: current.agentInstructionReferences ?? seedAgentInstructionReferences(),
     counts: {
       people: people.length,
       admins,
@@ -209,6 +223,7 @@ async function readStore(): Promise<DirectoryStore> {
   const current = await readGoogleJson(firestoreDocumentId, store)
   const normalized = normalizeSeededStore(current)
   store.people = normalized.people
+  store.agentInstructionReferences = normalized.agentInstructionReferences
   store.otp = normalized.otp
   if (JSON.stringify(current) !== JSON.stringify(normalized)) {
     await writeGoogleJson(firestoreDocumentId, normalized)
@@ -219,6 +234,7 @@ async function readStore(): Promise<DirectoryStore> {
 async function writeStore(nextStore: DirectoryStore): Promise<void> {
   const normalized = normalizeSeededStore(nextStore)
   store.people = normalized.people
+  store.agentInstructionReferences = normalized.agentInstructionReferences
   store.otp = normalized.otp
   await writeGoogleJson(firestoreDocumentId, normalized)
 }
@@ -262,7 +278,29 @@ function normalizeSeededStore(current: DirectoryStore): DirectoryStore {
   for (const user of additionalUsers) {
     if (!people.some((person) => person.id === user.id || person.phone === user.phone)) people.push(user)
   }
-  return { people, otp: current.otp ?? {} }
+  return {
+    people,
+    agentInstructionReferences: current.agentInstructionReferences?.length
+      ? current.agentInstructionReferences
+      : seedAgentInstructionReferences(),
+    otp: current.otp ?? {},
+  }
+}
+
+function seedAgentInstructionReferences(): AgentInstructionReference[] {
+  return [
+    {
+      id: 'abby-app-instructions',
+      title: 'Abby App Instructions',
+      sourceFile: 'ABBY_INSTRUCTIONS.md',
+      sourcePath: '/ABBY_INSTRUCTIONS.md',
+      sourceUrl: 'https://github.com/aalami5/abby/blob/main/ABBY_INSTRUCTIONS.md',
+      audience: 'provider-facing agent instructions',
+      ownerPersonId: 'person-oliver-aalami',
+      instructionField: 'abbyInstructions',
+      updatedAt: seededAt,
+    },
+  ]
 }
 
 function seedPeople(): DirectoryPerson[] {

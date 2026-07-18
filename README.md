@@ -29,6 +29,8 @@ That file is intentionally kept at the repository root so it is easy to identify
 The same source is clearly identified in the directory database for agent lookup:
 
 - Document: `directory-v1`
+- Reference catalog: `agentInstructionReferences`
+- Reference ID: `abby-app-instructions`
 - Provider record: `person-oliver-aalami`
 - Instruction field: `abbyInstructions`
 - Source metadata: `abbyInstructionsSourceFile`, `abbyInstructionsSourcePath`, `abbyInstructionsSourceUrl`

@@ -56,6 +56,7 @@ function toLocalDirectoryResponse(people: DirectoryPerson[], extra: Partial<Dire
     persistence: 'browser-fallback',
     auth: 'mock-otp',
     people: sorted,
+    agentInstructionReferences: seedAgentInstructionReferences(),
     counts: {
       people: sorted.length,
       admins,
@@ -306,6 +307,22 @@ function oliverAdmin(): DirectoryPerson {
     createdAt: seededAt,
     updatedAt: seededAt,
   }
+}
+
+function seedAgentInstructionReferences(): DirectoryResponse['agentInstructionReferences'] {
+  return [
+    {
+      id: 'abby-app-instructions',
+      title: 'Abby App Instructions',
+      sourceFile: 'ABBY_INSTRUCTIONS.md',
+      sourcePath: '/ABBY_INSTRUCTIONS.md',
+      sourceUrl: 'https://github.com/aalami5/abby/blob/main/ABBY_INSTRUCTIONS.md',
+      audience: 'provider-facing agent instructions',
+      ownerPersonId: 'person-oliver-aalami',
+      instructionField: 'abbyInstructions',
+      updatedAt: seededAt,
+    },
+  ]
 }
 
 function hasAdminRole(person: DirectoryPerson): boolean {

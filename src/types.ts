@@ -128,10 +128,23 @@ export type DirectoryPerson = {
   updatedAt: string
 }
 
+export type AgentInstructionReference = {
+  id: string
+  title: string
+  sourceFile: string
+  sourcePath: string
+  sourceUrl: string
+  audience: string
+  ownerPersonId: string
+  instructionField: keyof Pick<DirectoryPerson, 'abbyInstructions'>
+  updatedAt: string
+}
+
 export type DirectoryResponse = {
   persistence: string
   auth: 'twilio-verify' | 'mock-otp'
   people: DirectoryPerson[]
+  agentInstructionReferences: AgentInstructionReference[]
   counts: {
     people: number
     admins?: number

@@ -28,6 +28,8 @@ Agents should identify and load these instructions from the provider directory r
 
 - Firestore collection: `ABBY_FIRESTORE_COLLECTION`, default `abby_app_state`
 - Firestore document: `directory-v1`
+- Reference catalog: `agentInstructionReferences`
+- Reference ID: `abby-app-instructions`
 - Provider record ID: `person-oliver-aalami`
 - Instruction text field: `abbyInstructions`
 - Instruction title field: `abbyInstructionsTitle`
