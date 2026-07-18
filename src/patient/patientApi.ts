@@ -17,6 +17,7 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
       demo_phone_not_configured: 'Real SMS is ready, but this demo link still needs its private test phone number.',
       patient_session_expired: 'For your privacy, please verify your phone again.',
       claude_not_configured: 'Abby is not available yet. Please try again shortly.',
+      claude_temporarily_unavailable: 'Abby had trouble connecting. Please try your message again.',
       livekit_not_configured: 'Realtime voice is being connected. You can continue by text.',
     }
     throw new Error(messages[result.error ?? ''] ?? 'Something went wrong. Please try again.')

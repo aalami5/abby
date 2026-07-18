@@ -1,6 +1,8 @@
 import { appendAuditEvent, buildPatientPlan, type ApiRequest, type ApiResponse, PatientApiError, requirePatientSession, sendApiError } from './patientCore.js'
 
 type Message = { sender: 'patient' | 'abby'; content: string }
+const claudeTimeoutMs = 12_000
+const claudeAttempts = 2
 
 export default async function handler(request: ApiRequest, response: ApiResponse) {
   try {
@@ -14,22 +16,17 @@ export default async function handler(request: ApiRequest, response: ApiResponse
     const apiKey = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY
     if (!apiKey) throw new PatientApiError(503, 'claude_not_configured')
 
-    const result = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: process.env.ABBY_CLAUDE_MODEL || 'claude-sonnet-4-6',
-        max_tokens: 420,
-        system: buildPrompt(plan),
-        messages: [{ role: 'user', content: patientMessage.content }],
-      }),
+    const result = await requestClaude(apiKey, {
+      model: process.env.ABBY_CLAUDE_MODEL || 'claude-sonnet-4-6',
+      max_tokens: 420,
+      system: buildPrompt(plan),
+      messages: [{ role: 'user', content: patientMessage.content }],
     })
     const payload = await result.json() as { content?: Array<{ type?: string; text?: string }>; error?: { message?: string }; model?: string }
-    if (!result.ok) throw new PatientApiError(result.status, payload.error?.message ?? 'claude_error')
+    if (!result.ok) {
+      const transient = isTransientClaudeStatus(result.status)
+      throw new PatientApiError(transient ? 503 : 502, transient ? 'claude_temporarily_unavailable' : 'claude_request_failed')
+    }
     const content = payload.content?.find((item) => item.type === 'text')?.text?.trim()
     if (!content) throw new PatientApiError(502, 'empty_model_response')
 
@@ -47,6 +44,34 @@ export default async function handler(request: ApiRequest, response: ApiResponse
   } catch (error) {
     sendApiError(response, error)
   }
+}
+
+async function requestClaude(apiKey: string, body: unknown): Promise<Response> {
+  for (let attempt = 0; attempt < claudeAttempts; attempt += 1) {
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(claudeTimeoutMs),
+      })
+      if (isTransientClaudeStatus(response.status) && attempt + 1 < claudeAttempts) continue
+      return response
+    } catch {
+      if (attempt + 1 >= claudeAttempts) {
+        throw new PatientApiError(503, 'claude_temporarily_unavailable')
+      }
+    }
+  }
+  throw new PatientApiError(503, 'claude_temporarily_unavailable')
+}
+
+function isTransientClaudeStatus(status: number): boolean {
+  return status === 408 || status === 409 || status === 429 || status >= 500
 }
 
 function buildPrompt(plan: Awaited<ReturnType<typeof buildPatientPlan>>) {
