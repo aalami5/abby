@@ -29,6 +29,10 @@
   color: var(--ink);
 }
 
+.app-shell.admin-shell {
+  grid-template-columns: 178px minmax(0, 1fr);
+}
+
 .sidebar {
   min-height: 100svh;
   border-right: 1px solid var(--line);
@@ -51,6 +55,10 @@
 
 .brand {
   gap: 14px;
+}
+
+.brand-only .brand-copy {
+  display: none;
 }
 
 .brand-mark,
@@ -1053,7 +1061,8 @@ input {
 }
 
 @media (max-width: 1120px) {
-  .app-shell {
+  .app-shell,
+  .app-shell.admin-shell {
     grid-template-columns: 1fr;
   }
 
@@ -1062,6 +1071,10 @@ input {
     border-right: 0;
     border-bottom: 1px solid var(--line);
     padding-bottom: 14px;
+  }
+
+  .admin-shell .sidebar {
+    min-height: 0;
   }
 
   .nav {

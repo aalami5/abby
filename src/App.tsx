@@ -1,15 +1,12 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import {
   Activity,
-  BadgeCheck,
   CalendarCheck,
   ChevronRight,
   ClipboardList,
-  Database,
   LayoutDashboard,
   MessageSquareText,
   Pencil,
-  Phone,
   Plus,
   Save,
   ShieldCheck,
@@ -29,29 +26,12 @@ import {
 } from './apiClient'
 import type { AbbyCase, AbbyRun, DirectoryPerson, DirectoryResponse, DirectoryRole, EncounterRecord } from './types'
 
-type View = 'plan' | 'admin' | 'patient' | 'provider' | 'fhir' | 'evals' | 'tools'
+type View = 'admin' | 'patient' | 'provider'
 
 const views: Array<{ id: View; label: string; icon: typeof LayoutDashboard }> = [
   { id: 'admin', label: 'Superadmin', icon: LayoutDashboard },
   { id: 'patient', label: 'Patient demo', icon: MessageSquareText },
   { id: 'provider', label: 'Brief', icon: Stethoscope },
-]
-
-const workstreams = [
-  { name: 'FHIR patient-state spine', state: 'Now', detail: 'QuestionnaireResponse, Observation, Communication, Task, Provenance' },
-  { name: 'Synthetic patient actors', state: 'Now', detail: 'Transcript-derived personas for repeatable role-play and demos' },
-  { name: 'Provider Action Brief', state: 'Now', detail: 'What changed, what needs a decision, what can enter the note' },
-  { name: 'Tool-connected agent layer', state: 'Next', detail: 'Twilio, EHR/FHIR, scheduler, Abridge context, eval harness' },
-  { name: 'Voice and identity', state: 'Next', detail: 'Dedicated Abby Verify service, ElevenLabs Lauren B voice, secret-safe env vars' },
-  { name: 'Payer/prior auth module', state: 'Roadmap', detail: 'Gather missing info now; automate payer portals later' },
-]
-
-const tools = [
-  { name: 'FHIR write-back', icon: Database, status: 'Mocked', detail: 'Creates a structured Bundle ready for review before EHR/Abridge ingestion.' },
-  { name: 'Twilio Verify + SMS', icon: Phone, status: 'Planned', detail: 'Use a dedicated Abby Verify service to avoid disrupting BEAMIT or Health Ally.' },
-  { name: 'Follow-up scheduler', icon: CalendarCheck, status: 'Mocked', detail: 'Prepares appointment actions after clinician approval.' },
-  { name: 'Safety gate', icon: ShieldCheck, status: 'Active', detail: 'High-risk symptoms route to review rather than autonomous action.' },
-  { name: 'Eval harness', icon: BadgeCheck, status: 'Active', detail: 'Scores FHIR completeness, escalation, provenance, and unsupported facts.' },
 ]
 
 function App() {
@@ -136,16 +116,16 @@ function App() {
   }
 
   return (
-    <main className="app-shell">
+    <main className={`app-shell ${view === 'admin' ? 'admin-shell' : ''}`}>
       <aside className="sidebar">
-        <div className="brand">
+        <div className={`brand ${view === 'admin' ? 'brand-only' : ''}`}>
           <div className="brand-mark" aria-label="Abby logo">
             <span className="brand-letter brand-a">A</span>
             <span className="brand-letter">B</span>
             <span className="brand-letter">B</span>
             <span className="brand-letter brand-y">Y</span>
           </div>
-          <div>
+          <div className="brand-copy">
             <strong>Abby</strong>
             <span>care follow-up</span>
           </div>
@@ -162,28 +142,31 @@ function App() {
           </>
         )}
 
-        <nav className="nav" aria-label="Abby surfaces">
-          {views.map((item) => {
-            const Icon = item.icon
-            return (
-              <button key={item.id} type="button" className={view === item.id ? 'active' : ''} onClick={() => setView(item.id)} title={item.label}>
-                <Icon size={18} />
-                <span>{item.label}</span>
-              </button>
-            )
-          })}
-        </nav>
+        {view !== 'admin' && (
+          <nav className="nav" aria-label="Abby surfaces">
+            {views.map((item) => {
+              const Icon = item.icon
+              return (
+                <button key={item.id} type="button" className={view === item.id ? 'active' : ''} onClick={() => setView(item.id)} title={item.label}>
+                  <Icon size={18} />
+                  <span>{item.label}</span>
+                </button>
+              )
+            })}
+          </nav>
+        )}
 
-        <div className="sidebar-footer">
-          <Activity size={18} />
-          <span>{persistence === 'browser-fallback' ? 'Local fallback, synthetic data only' : 'Cloud demo, synthetic data only'}</span>
-        </div>
+        {view !== 'admin' && (
+          <div className="sidebar-footer">
+            <Activity size={18} />
+            <span>{persistence === 'browser-fallback' ? 'Local fallback, synthetic data only' : 'Cloud demo, synthetic data only'}</span>
+          </div>
+        )}
       </aside>
 
       <section className="workspace">
         <Header abbyCase={abbyCase} run={activeRun} persistence={persistence} view={view} directory={directory} />
         {runError && <div className="runtime-error">{runError}</div>}
-        {view === 'plan' && <PlanView />}
         {view === 'admin' && directory && (
           <AdminView
             directory={directory}
@@ -196,9 +179,6 @@ function App() {
         )}
         {view === 'patient' && <PatientView abbyCase={abbyCase} run={activeRun} onLaunch={() => launchRun(abbyCase)} isRunBusy={isRunBusy} />}
         {view === 'provider' && <ProviderView abbyCase={abbyCase} run={activeRun} onApprove={approveActiveRun} onExecute={executeActiveRun} isRunBusy={isRunBusy} />}
-        {view === 'fhir' && <FhirView abbyCase={abbyCase} run={activeRun} />}
-        {view === 'evals' && <EvalView abbyCase={abbyCase} run={activeRun} />}
-        {view === 'tools' && <ToolView run={activeRun} />}
       </section>
     </main>
   )
@@ -254,36 +234,6 @@ function Header({
         <span>{abbyCase.evalScores.filter((item) => item.score >= item.target).length}/{abbyCase.evalScores.length} evals passing</span>
       </div>
     </header>
-  )
-}
-
-function PlanView() {
-  return (
-    <section className="content-grid plan-grid">
-      <div className="panel thesis-panel">
-        <p className="eyebrow">Implementation thesis</p>
-        <h1>Build Abby as a patient-state operating layer, not a form bot.</h1>
-        <p>
-          Abby reads clinical context, interviews the patient, writes structured FHIR-backed updates, coordinates next steps through tools, and evaluates every run against transcript-derived cases.
-        </p>
-      </div>
-
-      <div className="panel">
-        <p className="eyebrow">Build sequence</p>
-        <div className="timeline">
-          {workstreams.map((item, index) => (
-            <div className="timeline-row" key={item.name}>
-              <div className="step-number">{index + 1}</div>
-              <div>
-                <strong>{item.name}</strong>
-                <p>{item.detail}</p>
-              </div>
-              <span className={`pill ${item.state.toLowerCase()}`}>{item.state}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
   )
 }
 
@@ -576,121 +526,6 @@ function ProviderView({
           <button type="button" className="secondary" onClick={onExecute} disabled={isRunBusy || !run || run.stage !== 'approved'}>
             <CalendarCheck size={16} /> Execute approved tools
           </button>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function FhirView({ abbyCase, run }: { abbyCase: AbbyCase; run?: AbbyRun }) {
-  const pretty = JSON.stringify(abbyCase.fhirBundle, null, 2)
-  const exportBundle = () => {
-    const blob = new Blob([pretty], { type: 'application/fhir+json' })
-    const url = URL.createObjectURL(blob)
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = `${abbyCase.fhirBundle.id ?? 'abby-fhir-bundle'}.json`
-    anchor.click()
-    URL.revokeObjectURL(url)
-  }
-
-  return (
-    <section className="content-grid single-col">
-      <div className="panel fhir-panel">
-        <div className="panel-title-row">
-          <div>
-            <p className="eyebrow">Structured patient-generated data</p>
-            <h2>FHIR Bundle preview</h2>
-          </div>
-          <div className="bundle-actions">
-            <span className="pill now">{Array.isArray(abbyCase.fhirBundle.entry) ? abbyCase.fhirBundle.entry.length : 0} resources</span>
-            <span className="pill next">{run?.writeBackComplete ? 'written' : 'review required'}</span>
-            <button type="button" onClick={exportBundle}><Database size={16} /> Export JSON</button>
-          </div>
-        </div>
-        <pre>{pretty}</pre>
-      </div>
-    </section>
-  )
-}
-
-function EvalView({ abbyCase, run }: { abbyCase: AbbyCase; run?: AbbyRun }) {
-  return (
-    <section className="content-grid two-col">
-      <div className="panel">
-        <p className="eyebrow">Eval harness</p>
-        <h2>Run-level quality gates</h2>
-        <div className="score-list">
-          {abbyCase.evalScores.map((item) => (
-            <div className="score-row" key={item.metric}>
-              <div>
-                <strong>{item.metric}</strong>
-                <span>target {item.target}</span>
-              </div>
-              <meter min="0" max="100" value={item.score} />
-              <b>{item.score}</b>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="panel">
-        <p className="eyebrow">Expected outputs</p>
-        <h2>Case checklist</h2>
-        <ul className="check-list">
-          <li>Correct chief concern and visit type</li>
-          <li>No hallucinated chart facts</li>
-          <li>Escalation when red flags appear</li>
-          <li>FHIR resources have provenance</li>
-          <li>Provider brief is action-oriented</li>
-          <li>Write-back requires clinician approval</li>
-        </ul>
-        <div className="tool-ledger mini-ledger">
-          {(run?.toolEvents ?? []).map((event) => (
-            <div className="tool-event" key={event.id}>
-              <span className={`event-dot ${event.status}`} />
-              <div>
-                <strong>{event.label}</strong>
-                <p>{event.detail}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function ToolView({ run }: { run?: AbbyRun }) {
-  return (
-    <section className="content-grid single-col">
-      <div className="tool-grid">
-        {tools.map((tool) => {
-          const Icon = tool.icon
-          return (
-            <div className="panel tool-panel" key={tool.name}>
-              <div className="tool-icon"><Icon size={20} /></div>
-              <span className="pill next">{tool.status}</span>
-              <h2>{tool.name}</h2>
-              <p>{tool.detail}</p>
-            </div>
-          )
-        })}
-      </div>
-      <div className="panel">
-        <p className="eyebrow">Tool execution ledger</p>
-        <h2>{run ? `Run ${run.id}` : 'No run launched'}</h2>
-        <div className="tool-ledger">
-          {(run?.toolEvents ?? []).map((event) => (
-            <div className="tool-event" key={event.id}>
-              <span className={`event-dot ${event.status}`} />
-              <div>
-                <strong>{event.label}</strong>
-                <p>{event.detail}</p>
-              </div>
-              <small>{event.timestamp}</small>
-            </div>
-          ))}
-          {!run && <p className="body-copy">Launch an intake from the Admin or Patient surface to populate the mocked MCP/tool trail.</p>}
         </div>
       </div>
     </section>
