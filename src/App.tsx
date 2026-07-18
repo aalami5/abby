@@ -144,13 +144,20 @@ function App() {
   const abbyCase = useMemo(() => (selectedRecord ? buildCase(selectedRecord) : null), [selectedRecord])
   const activeRun = abbyCase ? runsByCase[abbyCase.record.id] : undefined
   const navItems = useMemo(
-    () => menuItems.filter((item) => item.id !== 'brief' || selectedRole === 'provider'),
+    () => {
+      if (selectedRole === 'patient') return menuItems.filter((item) => item.id === 'chat')
+      return menuItems.filter((item) => item.id !== 'brief' || selectedRole === 'provider')
+    },
     [selectedRole],
   )
 
   useEffect(() => {
+    if (selectedRole === 'patient' && view !== 'patient') {
+      setView('patient')
+      return
+    }
     if (view === 'provider' && selectedRole !== 'provider') {
-      setView(selectedRole === 'patient' ? 'patient' : 'admin')
+      setView('admin')
       if (selectedRole === 'admin') setAdminSection('users')
     }
   }, [selectedRole, view])
@@ -274,7 +281,7 @@ function App() {
           selectedRole={selectedRole}
           onSelectedRoleChange={setSelectedRole}
         />
-        {view !== 'admin' && (
+        {view !== 'admin' && selectedRole !== 'patient' && (
           <div className="case-bar">
             <label htmlFor="case-select">Synthetic case</label>
             <select id="case-select" value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>
@@ -297,7 +304,16 @@ function App() {
             }}
           />
         )}
-        {view === 'patient' && <PatientChat abbyCase={abbyCase} directory={directory} run={activeRun} onLaunch={() => launchRun(abbyCase)} isRunBusy={isRunBusy} />}
+        {view === 'patient' && (
+          <PatientChat
+            abbyCase={abbyCase}
+            directory={directory}
+            run={activeRun}
+            onLaunch={() => launchRun(abbyCase)}
+            isRunBusy={isRunBusy}
+            patientOnly={selectedRole === 'patient'}
+          />
+        )}
         {view === 'provider' && directory && (
           <ProviderView
             directory={directory}

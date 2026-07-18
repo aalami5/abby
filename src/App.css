@@ -471,6 +471,15 @@ select {
   padding: 24px;
 }
 
+.patient-only-chat {
+  grid-template-columns: minmax(0, 1fr);
+  min-height: calc(100svh - 72px);
+}
+
+.patient-only-chat .chat-surface {
+  min-height: calc(100svh - 120px);
+}
+
 .chat-surface,
 .chat-context-panel {
   border: 1px solid var(--line);

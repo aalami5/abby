@@ -10,9 +10,10 @@ type PatientChatProps = {
   run?: AbbyRun
   onLaunch: () => void
   isRunBusy: boolean
+  patientOnly?: boolean
 }
 
-export function PatientChat({ abbyCase, directory, run, onLaunch, isRunBusy }: PatientChatProps) {
+export function PatientChat({ abbyCase, directory, run, onLaunch, isRunBusy, patientOnly = false }: PatientChatProps) {
   const provider = useMemo(() => {
     if (!directory) return undefined
     const patient = directory.people.find((person) => person.sourceRecordId === abbyCase.record.id)
@@ -67,7 +68,7 @@ export function PatientChat({ abbyCase, directory, run, onLaunch, isRunBusy }: P
   }
 
   return (
-    <section className="chat-layout" aria-label="Patient chat with Abby">
+    <section className={`chat-layout ${patientOnly ? 'patient-only-chat' : ''}`} aria-label="Patient chat with Abby">
       <div className="chat-surface">
         <div className="chat-date-pill">
           <Sparkles size={14} />
@@ -119,40 +120,42 @@ export function PatientChat({ abbyCase, directory, run, onLaunch, isRunBusy }: P
         </form>
       </div>
 
-      <aside className="chat-context-panel" aria-label="Visit context">
-        <div className="panel-title-row">
-          <div>
-            <p className="eyebrow">Abby context</p>
-            <h2>{context.specialist.specialty}</h2>
-          </div>
-          <Stethoscope size={20} />
-        </div>
-        <p className="body-copy">
-          Abby is answering on behalf of {context.specialist.name}. The reply uses the synthetic chart, visit note, AVS, and current patient message.
-        </p>
-        <div className="chat-context-list">
-          {abbyCase.signals.slice(0, 4).map((signal) => (
-            <div className="signal" key={`${signal.label}-${signal.value}`}>
-              <span className={`severity ${signal.severity}`}>{signal.severity}</span>
-              <div>
-                <strong>{signal.label}</strong>
-                <p>{signal.value}</p>
-              </div>
-              <small>{signal.source}</small>
+      {!patientOnly && (
+        <aside className="chat-context-panel" aria-label="Visit context">
+          <div className="panel-title-row">
+            <div>
+              <p className="eyebrow">Abby context</p>
+              <h2>{context.specialist.specialty}</h2>
             </div>
-          ))}
-        </div>
-        <div className="safety-note">
-          <AlertTriangle size={17} />
-          <span>Urgent symptoms should be escalated to emergency care or the specialist's office.</span>
-        </div>
-        <div className="run-summary chat-run-summary">
-          <span className={`pill ${run ? 'now' : 'next'}`}>{run ? run.stage : 'no run'}</span>
-          <button type="button" onClick={onLaunch} disabled={isRunBusy}>
-            <ClipboardList size={16} /> {run ? 'Refresh brief' : 'Prepare brief'}
-          </button>
-        </div>
-      </aside>
+            <Stethoscope size={20} />
+          </div>
+          <p className="body-copy">
+            Abby is answering on behalf of {context.specialist.name}. The reply uses the synthetic chart, visit note, AVS, and current patient message.
+          </p>
+          <div className="chat-context-list">
+            {abbyCase.signals.slice(0, 4).map((signal) => (
+              <div className="signal" key={`${signal.label}-${signal.value}`}>
+                <span className={`severity ${signal.severity}`}>{signal.severity}</span>
+                <div>
+                  <strong>{signal.label}</strong>
+                  <p>{signal.value}</p>
+                </div>
+                <small>{signal.source}</small>
+              </div>
+            ))}
+          </div>
+          <div className="safety-note">
+            <AlertTriangle size={17} />
+            <span>Urgent symptoms should be escalated to emergency care or the specialist's office.</span>
+          </div>
+          <div className="run-summary chat-run-summary">
+            <span className={`pill ${run ? 'now' : 'next'}`}>{run ? run.stage : 'no run'}</span>
+            <button type="button" onClick={onLaunch} disabled={isRunBusy}>
+              <ClipboardList size={16} /> {run ? 'Refresh brief' : 'Prepare brief'}
+            </button>
+          </div>
+        </aside>
+      )}
     </section>
   )
 }
