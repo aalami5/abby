@@ -10,12 +10,15 @@ import {
   FileJson,
   LayoutDashboard,
   MessageSquareText,
+  Pencil,
   Phone,
   Plus,
+  Save,
   ShieldCheck,
   Stethoscope,
   TestTube2,
   UserRound,
+  X,
   Workflow,
 } from 'lucide-react'
 import './App.css'
@@ -348,11 +351,13 @@ function AdminView({
   onDirectoryChange: (directory: DirectoryResponse) => void
 }) {
   const [form, setForm] = useState({
+    id: '',
     name: '',
     phone: '',
     roles: ['patient'] as DirectoryRole[],
     specialty: '',
     primaryProviderId: '',
+    createdAt: '',
   })
   const [otpPhone, setOtpPhone] = useState(directory.people.find((person) => person.roles.includes('superadmin'))?.phone ?? directory.people[0]?.phone ?? '')
   const [otpCode, setOtpCode] = useState('')
@@ -360,6 +365,7 @@ function AdminView({
   const [isSaving, setIsSaving] = useState(false)
   const providers = directory.people.filter((person) => person.roles.includes('provider'))
   const patients = directory.people.filter((person) => person.roles.includes('patient'))
+  const isEditing = Boolean(form.id)
 
   const toggleRole = (role: DirectoryRole) => {
     setForm((current) => {
@@ -375,20 +381,39 @@ function AdminView({
     setIsSaving(true)
     try {
       const nextDirectory = await saveDirectoryPerson({
+        id: form.id || undefined,
         name: form.name,
         phone: form.phone,
         roles: form.roles,
         specialty: form.specialty || undefined,
         primaryProviderId: form.primaryProviderId || undefined,
+        createdAt: form.createdAt || undefined,
       })
       onDirectoryChange(nextDirectory)
-      setAdminMessage(`${form.name} saved`)
-      setForm({ name: '', phone: '', roles: ['patient'], specialty: '', primaryProviderId: '' })
+      setAdminMessage(`${form.name} ${isEditing ? 'updated' : 'saved'}`)
+      resetForm()
     } catch (error) {
       setAdminMessage(error instanceof Error ? error.message : String(error))
     } finally {
       setIsSaving(false)
     }
+  }
+
+  const resetForm = () => {
+    setForm({ id: '', name: '', phone: '', roles: ['patient'], specialty: '', primaryProviderId: '', createdAt: '' })
+  }
+
+  const editPerson = (person: DirectoryPerson) => {
+    setForm({
+      id: person.id,
+      name: person.name,
+      phone: person.phone,
+      roles: person.roles,
+      specialty: person.specialty ?? '',
+      primaryProviderId: person.primaryProviderId ?? '',
+      createdAt: person.createdAt,
+    })
+    setAdminMessage(`Editing ${person.name}`)
   }
 
   const sendOtp = async () => {
@@ -421,7 +446,7 @@ function AdminView({
     <section className="content-grid admin-simple-grid">
       <div className="panel admin-hero">
         <p className="eyebrow">Superadmin</p>
-        <h1>People, patients, providers.</h1>
+        <h1>User add-ons and patient roster.</h1>
         <div className="metric-strip">
           <Metric label="People" value={directory.counts.people} />
           <Metric label="Providers" value={directory.counts.providers} />
@@ -431,14 +456,23 @@ function AdminView({
       </div>
 
       <form className="panel person-form" onSubmit={savePerson}>
-        <p className="eyebrow">Add person</p>
-        <h2>One profile can hold multiple roles</h2>
+        <div className="panel-title-row">
+          <div>
+            <p className="eyebrow">User add-ons</p>
+            <h2>{isEditing ? 'Edit directory profile' : 'Add a user or patient'}</h2>
+          </div>
+          {isEditing && (
+            <button className="icon-action" type="button" onClick={resetForm} title="Cancel edit" aria-label="Cancel edit">
+              <X size={18} />
+            </button>
+          )}
+        </div>
         <label>
           <span>Name</span>
           <input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Jane Doe" required />
         </label>
         <label>
-          <span>Phone</span>
+          <span>Cell phone</span>
           <input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="+1 650 555 0100" required />
         </label>
         <div className="role-toggle" aria-label="Roles">
@@ -463,7 +497,10 @@ function AdminView({
             </select>
           </label>
         )}
-        <button type="submit" disabled={isSaving || !form.roles.length}><Plus size={16} /> Add person</button>
+        <button type="submit" disabled={isSaving || !form.roles.length}>
+          {isEditing ? <Save size={16} /> : <Plus size={16} />}
+          {isEditing ? 'Save changes' : 'Add person'}
+        </button>
       </form>
 
       <div className="panel otp-panel">
@@ -482,9 +519,9 @@ function AdminView({
         {adminMessage && <div className="admin-message">{adminMessage}</div>}
       </div>
 
-      <PeopleList title="Providers" people={providers} />
-      <PeopleList title="Patients" people={patients} providers={providers} />
-      <PeopleList title="All people" people={directory.people} />
+      <PatientRoster patients={patients} providers={providers} onEdit={editPerson} />
+      <PeopleList title="Providers" people={providers} onEdit={editPerson} />
+      <PeopleList title="All people" people={directory.people} onEdit={editPerson} />
     </section>
   )
 }
@@ -498,7 +535,54 @@ function Metric({ label, value }: { label: string; value: number }) {
   )
 }
 
-function PeopleList({ title, people, providers = [] }: { title: string; people: DirectoryPerson[]; providers?: DirectoryPerson[] }) {
+function PatientRoster({
+  patients,
+  providers,
+  onEdit,
+}: {
+  patients: DirectoryPerson[]
+  providers: DirectoryPerson[]
+  onEdit: (person: DirectoryPerson) => void
+}) {
+  return (
+    <div className="panel patient-roster">
+      <div className="panel-title-row">
+        <div>
+          <p className="eyebrow">Patient list</p>
+          <h2>{patients.length} demo patients</h2>
+        </div>
+        <UserRound size={20} />
+      </div>
+      <div className="patient-table" role="table" aria-label="Patients">
+        <div className="patient-table-head" role="row">
+          <span>Name</span>
+          <span>Cell phone</span>
+          <span>Primary provider</span>
+          <span>Roles</span>
+          <span>Action</span>
+        </div>
+        {patients.map((patient) => {
+          const primaryProvider = providers.find((provider) => provider.id === patient.primaryProviderId)
+          return (
+            <div className="patient-table-row" role="row" key={patient.id}>
+              <strong>{patient.name}</strong>
+              <span className="phone-value">{patient.phone}</span>
+              <span>{primaryProvider?.name ?? 'Unassigned'}</span>
+              <div className="person-tags">
+                {patient.roles.map((role) => <span key={role}>{role}</span>)}
+              </div>
+              <button type="button" className="edit-button" onClick={() => onEdit(patient)}>
+                <Pencil size={15} /> Edit
+              </button>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function PeopleList({ title, people, providers = [], onEdit }: { title: string; people: DirectoryPerson[]; providers?: DirectoryPerson[]; onEdit: (person: DirectoryPerson) => void }) {
   return (
     <div className="panel people-panel">
       <div className="panel-title-row">
@@ -522,6 +606,9 @@ function PeopleList({ title, people, providers = [] }: { title: string; people: 
                 {person.specialty && <span>{person.specialty}</span>}
                 {primaryProvider && <span>{primaryProvider.name}</span>}
               </div>
+              <button type="button" className="icon-action" onClick={() => onEdit(person)} title={`Edit ${person.name}`} aria-label={`Edit ${person.name}`}>
+                <Pencil size={16} />
+              </button>
             </div>
           )
         })}

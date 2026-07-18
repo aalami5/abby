@@ -204,7 +204,7 @@ export async function saveDirectoryPerson(person: Partial<DirectoryPerson>): Pro
       createdAt: person.createdAt ?? now,
       updatedAt: now,
     } satisfies DirectoryPerson
-    const people = current.people.filter((item) => item.phone !== phone)
+    const people = current.people.filter((item) => item.id !== nextPerson.id && item.phone !== phone)
     const next = toLocalDirectoryResponse([nextPerson, ...people])
     writeLocalDirectory(next)
     return next

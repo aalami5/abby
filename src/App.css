@@ -731,7 +731,8 @@ meter {
 
 .person-form,
 .otp-panel,
-.people-panel {
+.people-panel,
+.patient-roster {
   display: grid;
   gap: 12px;
 }
@@ -772,7 +773,9 @@ input {
 
 .role-toggle button,
 .person-form > button,
-.otp-row button {
+.otp-row button,
+.edit-button,
+.icon-action {
   min-height: 38px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -786,18 +789,29 @@ input {
 
 .role-toggle button.selected,
 .person-form > button,
-.otp-row button {
+.otp-row button,
+.edit-button {
   background: linear-gradient(135deg, var(--abridge-dark), var(--abridge));
   border-color: var(--abridge);
   color: #ffffff;
 }
 
 .person-form > button,
-.otp-row button {
+.otp-row button,
+.edit-button,
+.icon-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
+}
+
+.icon-action {
+  width: 38px;
+  padding: 0;
+  justify-self: end;
+  background: #ffffff;
+  color: var(--abridge-dark);
 }
 
 .otp-row {
@@ -821,6 +835,8 @@ input {
 
 .person-row {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 38px;
+  align-items: center;
   gap: 10px;
   border: 1px solid #f7e5dd;
   border-radius: 8px;
@@ -836,6 +852,49 @@ input {
 .person-row > div:first-child span {
   color: var(--muted);
   font-size: 13px;
+}
+
+.patient-roster {
+  grid-column: span 2;
+}
+
+.patient-table {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid #f7e5dd;
+  border-radius: 8px;
+}
+
+.patient-table-head,
+.patient-table-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(142px, 0.86fr) minmax(150px, 0.9fr) minmax(128px, 0.7fr) 92px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+}
+
+.patient-table-head {
+  background: var(--cream);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.patient-table-row {
+  min-height: 62px;
+  background: rgba(255, 255, 255, 0.62);
+  border-top: 1px solid #f7e5dd;
+}
+
+.patient-table-row > span,
+.phone-value {
+  color: var(--muted);
+}
+
+.phone-value {
+  font-weight: 900;
 }
 
 .person-tags span {
@@ -957,6 +1016,10 @@ input {
   .tool-grid,
   .admin-simple-grid {
     grid-template-columns: 1fr;
+  }
+
+  .patient-roster {
+    grid-column: auto;
   }
 
   .topbar {
@@ -1160,7 +1223,8 @@ input {
   .score-row,
   .admin-row,
   .tool-event,
-  .otp-row {
+  .otp-row,
+  .person-row {
     grid-template-columns: 1fr;
     align-items: start;
   }
@@ -1186,7 +1250,8 @@ input {
 
   .person-form,
   .otp-panel,
-  .people-panel {
+  .people-panel,
+  .patient-roster {
     gap: 10px;
   }
 
@@ -1198,11 +1263,18 @@ input {
   .role-toggle button,
   .person-form > button,
   .otp-row button,
+  .edit-button,
   .run-summary button,
   .approval-row button,
   .bundle-actions button {
     width: 100%;
     min-height: 44px;
+  }
+
+  .icon-action {
+    width: 44px;
+    min-height: 44px;
+    justify-self: start;
   }
 
   .otp-row {
@@ -1212,6 +1284,28 @@ input {
   .person-row {
     gap: 8px;
     padding: 11px;
+  }
+
+  .patient-table {
+    border: 0;
+    gap: 10px;
+    overflow: visible;
+  }
+
+  .patient-table-head {
+    display: none;
+  }
+
+  .patient-table-row {
+    grid-template-columns: 1fr;
+    gap: 7px;
+    border: 1px solid #f7e5dd;
+    border-radius: 8px;
+    padding: 12px;
+  }
+
+  .patient-table-row > span {
+    overflow-wrap: anywhere;
   }
 
   .person-row > div:first-child span,

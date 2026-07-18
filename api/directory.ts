@@ -177,7 +177,7 @@ function normalizePerson(value: unknown, people: DirectoryPerson[]): DirectoryPe
   if (!name) throw new Error('name is required')
   if (!phone) throw new Error('phone is required')
   if (!roles.length) throw new Error('at least one role is required')
-  const existing = people.find((person) => person.phone === phone)
+  const existing = people.find((person) => person.id === input.id || person.phone === phone)
   const now = new Date().toISOString()
   return {
     id: input.id || existing?.id || `person-${slugify(name)}-${Math.random().toString(16).slice(2, 8)}`,
