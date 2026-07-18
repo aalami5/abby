@@ -159,10 +159,11 @@ export async function loadDirectory(): Promise<DirectoryResponse> {
 
 export async function saveDirectoryPerson(person: Partial<DirectoryPerson>): Promise<DirectoryResponse> {
   try {
-    return await requestJson<DirectoryResponse>('/api/directory', {
+    await requestJson<DirectoryResponse>('/api/directory', {
       method: 'POST',
       body: JSON.stringify({ person }),
     })
+    return await loadDirectory()
   } catch {
     const current = await readLocalDirectory()
     const phone = normalizePhone(person.phone)
