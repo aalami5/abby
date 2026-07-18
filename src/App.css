@@ -1170,7 +1170,7 @@ input {
 .patient-table-head,
 .patient-table-row {
   display: grid;
-  grid-template-columns: minmax(120px, 0.8fr) minmax(122px, 0.7fr) minmax(86px, 0.5fr) minmax(170px, 1.2fr) 88px;
+  grid-template-columns: minmax(180px, 1fr) minmax(132px, 0.68fr) minmax(96px, 0.52fr) minmax(190px, 1.12fr) 96px;
   align-items: center;
   gap: 12px;
   padding: 12px;
@@ -1193,6 +1193,26 @@ input {
 .patient-table-row > span,
 .phone-value {
   color: var(--muted);
+}
+
+.patient-name-cell {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.patient-name-cell strong {
+  display: block;
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.patient-name-cell span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .phone-value {
@@ -1686,6 +1706,12 @@ input {
 
   .patient-table-row > span {
     overflow-wrap: anywhere;
+  }
+
+  .patient-table-row > span::before {
+    content: attr(data-label) ": ";
+    color: var(--ink);
+    font-weight: 900;
   }
 
   .patient-actions {

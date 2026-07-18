@@ -332,7 +332,7 @@ function AdminView({
           <form className="panel person-form compact-patient-form" onSubmit={savePerson}>
             <div className="panel-title-row">
               <div>
-                <p className="eyebrow">Patient</p>
+                <p className="eyebrow">Patients</p>
                 <h2>{isEditing ? 'Edit patient cell' : 'Add patient'}</h2>
               </div>
               {isEditing && (
@@ -376,8 +376,8 @@ function PatientRoster({
     <div className="panel patient-roster">
       <div className="panel-title-row">
         <div>
-          <p className="eyebrow">Patient list</p>
-          <h2>{patients.length} Abridge synthetic patients</h2>
+          <p className="eyebrow">Patients</p>
+          <h2>{patients.length} named Abridge synthetic patients</h2>
         </div>
         <UserRound size={20} />
       </div>
@@ -392,10 +392,13 @@ function PatientRoster({
         {patients.map((patient) => {
           return (
             <div className="patient-table-row" role="row" key={patient.id}>
-              <strong>{patient.name}</strong>
-              <span className="phone-value">{patient.phone}</span>
-              <span>{patient.birthDate ? `${ageFromBirthDate(patient.birthDate)} yrs` : 'Age unknown'}{patient.gender ? `, ${patient.gender}` : ''}</span>
-              <span>{patient.visitTitle ?? 'Synthetic encounter'}</span>
+              <div className="patient-name-cell">
+                <strong>{patient.name}</strong>
+                <span>{patient.sourceRecordId ? 'Abridge synthetic record' : 'Added patient'}</span>
+              </div>
+              <span className="phone-value" data-label="Cell">{patient.phone}</span>
+              <span data-label="Age / sex">{patient.birthDate ? `${ageFromBirthDate(patient.birthDate)} yrs` : 'Age unknown'}{patient.gender ? `, ${patient.gender}` : ''}</span>
+              <span data-label="Visit">{patient.visitTitle ?? 'Synthetic encounter'}</span>
               <div className="patient-actions">
                 {patient.sourceRecordId && (
                   <button type="button" className="quiet-button" onClick={() => onOpenPatient(patient.sourceRecordId ?? '')}>
