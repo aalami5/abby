@@ -12,6 +12,8 @@ type CheckInResponse = {
   status: string
   message: string
   twilioMessageSid?: string
+  twilioErrorCode?: number
+  twilioErrorMessage?: string
   detail?: string
 }
 

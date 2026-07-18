@@ -1227,11 +1227,14 @@ function ProviderView({
     try {
       const savedPatient = await persistPatientPhone(patient)
       const result = await sendPatientCheckIn({ patient: savedPatient, provider: selectedProvider })
+      const failed = result.mode === 'twilio' && ['failed', 'undelivered'].includes(result.status)
       const status = result.mode === 'twilio'
-        ? `Twilio SMS ${result.status}`
+        ? failed
+          ? `Twilio SMS ${result.status}: ${result.twilioErrorMessage ?? result.twilioErrorCode ?? 'delivery failed'}`
+          : `Twilio SMS ${result.status}`
         : 'Demo message ready; configure Twilio to send'
       setPreVisitStatusByPatient((current) => ({ ...current, [patient.id]: status }))
-      setCheckInNotice('Check-in sent')
+      setCheckInNotice(failed ? 'Check-in failed' : 'Check-in sent')
     } catch (error) {
       setPreVisitStatusByPatient((current) => ({
         ...current,

@@ -23,6 +23,14 @@ type VercelResponse = {
   status: (code: number) => { json: (body: unknown) => void }
 }
 
+type TwilioMessagePayload = {
+  sid?: string
+  status?: string
+  message?: string
+  error_code?: number | null
+  error_message?: string | null
+}
+
 declare const process: {
   env: Record<string, string | undefined>
 }
@@ -61,21 +69,47 @@ export default async function handler(request: VercelRequest, response: VercelRe
       }),
     })
 
-    const payload = await twilioResponse.json() as { sid?: string; status?: string; message?: string }
+    const payload = await twilioResponse.json() as TwilioMessagePayload
     if (!twilioResponse.ok) {
       response.status(twilioResponse.status).json({ error: payload.message ?? `Twilio returned ${twilioResponse.status}` })
       return
     }
 
+    const statusPayload = payload.sid ? await pollTwilioMessageStatus(twilio, payload.sid) : payload
+
     response.status(200).json({
       mode: 'twilio',
-      status: payload.status ?? 'queued',
+      status: statusPayload.status ?? payload.status ?? 'queued',
       message,
       twilioMessageSid: payload.sid,
+      twilioErrorCode: statusPayload.error_code ?? undefined,
+      twilioErrorMessage: statusPayload.error_message ?? undefined,
     })
   } catch (error) {
     response.status(400).json({ error: error instanceof Error ? error.message : String(error) })
   }
+}
+
+async function pollTwilioMessageStatus(twilio: TwilioMessagingConfig, messageSid: string): Promise<TwilioMessagePayload> {
+  let latest: TwilioMessagePayload = {}
+
+  for (const delayMs of [900, 1800, 3200]) {
+    await sleep(delayMs)
+    const twilioResponse = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilio.accountSid}/Messages/${messageSid}.json`, {
+      headers: { authorization: twilioAuthorization(twilio) },
+    })
+    const payload = await twilioResponse.json() as TwilioMessagePayload
+    if (!twilioResponse.ok) return latest.status ? latest : payload
+
+    latest = payload
+    if (['sent', 'delivered', 'failed', 'undelivered'].includes(payload.status ?? '')) return payload
+  }
+
+  return latest
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 function buildCheckInMessage(body: CheckInRequest & { patientPhone: string; specialty: string }): string {
