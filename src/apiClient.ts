@@ -186,7 +186,9 @@ function patientVerificationUrl(patient: DirectoryPerson): string | undefined {
 
 export async function loadDirectory(): Promise<DirectoryResponse> {
   try {
-    return await requestJson<DirectoryResponse>('/api/directory')
+    const remote = await requestJson<DirectoryResponse>('/api/directory')
+    const stored = readStoredDirectory()
+    return stored ? normalizeSeededDirectory(stored, remote.people) : remote
   } catch {
     return readLocalDirectory()
   }
@@ -194,11 +196,12 @@ export async function loadDirectory(): Promise<DirectoryResponse> {
 
 export async function saveDirectoryPerson(person: Partial<DirectoryPerson>): Promise<DirectoryResponse> {
   try {
-    await requestJson<DirectoryResponse>('/api/directory', {
+    const nextDirectory = await requestJson<DirectoryResponse>('/api/directory', {
       method: 'POST',
       body: JSON.stringify({ person }),
     })
-    return await loadDirectory()
+    writeLocalDirectory(nextDirectory)
+    return nextDirectory
   } catch {
     const current = await readLocalDirectory()
     const phone = normalizePhone(person.phone)
@@ -232,6 +235,17 @@ export async function saveDirectoryPerson(person: Partial<DirectoryPerson>): Pro
     const next = toLocalDirectoryResponse([nextPerson, ...people])
     writeLocalDirectory(next)
     return next
+  }
+}
+
+function readStoredDirectory(): DirectoryResponse | undefined {
+  const stored = window.localStorage.getItem(localDirectoryStorageKey)
+  if (!stored) return undefined
+  try {
+    return JSON.parse(stored) as DirectoryResponse
+  } catch {
+    window.localStorage.removeItem(localDirectoryStorageKey)
+    return undefined
   }
 }
 
