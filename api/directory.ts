@@ -10,6 +10,11 @@ type DirectoryPerson = {
   roles: Role[]
   specialty?: string
   abbyInstructions?: string
+  abbyInstructionsTitle?: string
+  abbyInstructionsSourceFile?: string
+  abbyInstructionsSourcePath?: string
+  abbyInstructionsSourceUrl?: string
+  abbyInstructionsAudience?: string
   primaryProviderId?: string
   gender?: string
   birthDate?: string
@@ -163,6 +168,11 @@ function normalizePerson(value: unknown, people: DirectoryPerson[]): DirectoryPe
     roles,
     specialty: typeof input.specialty === 'string' ? input.specialty.trim() : existing?.specialty,
     abbyInstructions: typeof input.abbyInstructions === 'string' ? input.abbyInstructions : existing?.abbyInstructions,
+    abbyInstructionsTitle: typeof input.abbyInstructionsTitle === 'string' ? input.abbyInstructionsTitle.trim() : existing?.abbyInstructionsTitle,
+    abbyInstructionsSourceFile: typeof input.abbyInstructionsSourceFile === 'string' ? input.abbyInstructionsSourceFile.trim() : existing?.abbyInstructionsSourceFile,
+    abbyInstructionsSourcePath: typeof input.abbyInstructionsSourcePath === 'string' ? input.abbyInstructionsSourcePath.trim() : existing?.abbyInstructionsSourcePath,
+    abbyInstructionsSourceUrl: typeof input.abbyInstructionsSourceUrl === 'string' ? input.abbyInstructionsSourceUrl.trim() : existing?.abbyInstructionsSourceUrl,
+    abbyInstructionsAudience: typeof input.abbyInstructionsAudience === 'string' ? input.abbyInstructionsAudience.trim() : existing?.abbyInstructionsAudience,
     primaryProviderId: typeof input.primaryProviderId === 'string' ? input.primaryProviderId : existing?.primaryProviderId,
     gender: typeof input.gender === 'string' ? input.gender.trim() : existing?.gender,
     birthDate: typeof input.birthDate === 'string' ? input.birthDate.trim() : existing?.birthDate,
@@ -200,6 +210,9 @@ async function readStore(): Promise<DirectoryStore> {
   const normalized = normalizeSeededStore(current)
   store.people = normalized.people
   store.otp = normalized.otp
+  if (JSON.stringify(current) !== JSON.stringify(normalized)) {
+    await writeGoogleJson(firestoreDocumentId, normalized)
+  }
   return normalized
 }
 
@@ -224,6 +237,11 @@ function normalizeSeededStore(current: DirectoryStore): DirectoryStore {
           roles: existing.roles.length ? normalizeRoles(existing.roles) : seed.roles,
           specialty: existing.specialty,
           abbyInstructions: existing.abbyInstructions ?? seed.abbyInstructions,
+          abbyInstructionsTitle: existing.abbyInstructionsTitle ?? seed.abbyInstructionsTitle,
+          abbyInstructionsSourceFile: existing.abbyInstructionsSourceFile ?? seed.abbyInstructionsSourceFile,
+          abbyInstructionsSourcePath: existing.abbyInstructionsSourcePath ?? seed.abbyInstructionsSourcePath,
+          abbyInstructionsSourceUrl: existing.abbyInstructionsSourceUrl ?? seed.abbyInstructionsSourceUrl,
+          abbyInstructionsAudience: existing.abbyInstructionsAudience ?? seed.abbyInstructionsAudience,
           primaryProviderId: existing.primaryProviderId ?? seed.primaryProviderId,
           gender: existing.gender,
           birthDate: existing.birthDate,
@@ -258,6 +276,11 @@ function oliverAdmin(): DirectoryPerson {
     phone: '+16503153236',
     roles: ['admin', 'provider', 'patient'],
     specialty: 'Vascular Surgery',
+    abbyInstructionsTitle: 'Abby App Instructions',
+    abbyInstructionsSourceFile: 'ABBY_INSTRUCTIONS.md',
+    abbyInstructionsSourcePath: '/ABBY_INSTRUCTIONS.md',
+    abbyInstructionsSourceUrl: 'https://github.com/aalami5/abby/blob/main/ABBY_INSTRUCTIONS.md',
+    abbyInstructionsAudience: 'provider-facing agent instructions',
     abbyInstructions: [
       '# Abby App Instructions',
       '',

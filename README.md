@@ -26,6 +26,13 @@ ABBY_INSTRUCTIONS.md
 
 That file is intentionally kept at the repository root so it is easy to identify in GitHub.
 
+The same source is clearly identified in the directory database for agent lookup:
+
+- Document: `directory-v1`
+- Provider record: `person-oliver-aalami`
+- Instruction field: `abbyInstructions`
+- Source metadata: `abbyInstructionsSourceFile`, `abbyInstructionsSourcePath`, `abbyInstructionsSourceUrl`
+
 ## Run
 
 ```bash
