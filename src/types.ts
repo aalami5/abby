@@ -142,7 +142,7 @@ export type AgentInstructionReference = {
 
 export type DirectoryResponse = {
   persistence: string
-  auth: 'twilio-verify' | 'mock-otp'
+  auth: 'twilio-verify' | 'twilio-sms' | 'mock-otp'
   people: DirectoryPerson[]
   agentInstructionReferences: AgentInstructionReference[]
   counts: {
@@ -153,7 +153,7 @@ export type DirectoryResponse = {
     patients: number
   }
   otp?: {
-    mode: 'twilio-verify' | 'mock'
+    mode: 'twilio-verify' | 'twilio-sms' | 'mock'
     phone: string
     demoCode?: string
   }

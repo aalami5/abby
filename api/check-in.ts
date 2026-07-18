@@ -81,7 +81,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
 function buildCheckInMessage(body: CheckInRequest & { patientPhone: string; specialty: string }): string {
   const providerName = body.providerName?.trim() || 'Dr. Oliver Aalami'
   const greeting = body.patientName ? `Hi ${firstName(body.patientName)},` : 'Hello,'
-  const invite = `this is Abby, ${providerName}'s assistant. Please start your quick ${body.specialty} check-in`
+  const invite = `this is Abby, ${providerName}'s assistant. Please verify your phone to start your quick ${body.specialty} check-in`
   return body.chatUrl
     ? `${greeting} ${invite} here: ${body.chatUrl}`
     : `${greeting} ${invite} before your visit.`

@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import {
   CalendarCheck,
   Check,
@@ -29,7 +29,9 @@ import {
   loadDirectory,
   loadRuns,
   saveDirectoryPerson,
+  sendDirectoryOtp,
   sendPatientCheckIn,
+  verifyDirectoryOtp,
 } from './apiClient'
 import type { AbbyCase, AbbyRun, DirectoryPerson, DirectoryResponse, DirectoryRole, EncounterRecord } from './types'
 
@@ -124,6 +126,7 @@ function App() {
   const [directory, setDirectory] = useState<DirectoryResponse | null>(null)
   const [runError, setRunError] = useState('')
   const [isRunBusy, setIsRunBusy] = useState(false)
+  const [verifiedPatientRecordIds, setVerifiedPatientRecordIds] = useState<Set<string>>(() => new Set())
 
   useEffect(() => {
     async function initialize() {
@@ -145,6 +148,10 @@ function App() {
 
   const selectedRecord = useMemo(() => records.find((record) => record.id === selectedId) ?? records[0], [records, selectedId])
   const abbyCase = useMemo(() => (selectedRecord ? buildCase(selectedRecord) : null), [selectedRecord])
+  const selectedDirectoryPatient = useMemo(
+    () => directory?.people.find((person) => person.roles.includes('patient') && person.sourceRecordId === abbyCase?.record.id),
+    [abbyCase?.record.id, directory],
+  )
   const activeRun = abbyCase ? runsByCase[abbyCase.record.id] : undefined
   const navItems = useMemo(
     () => {
@@ -318,14 +325,31 @@ function App() {
           />
         )}
         {view === 'patient' && (
-          <PatientChat
-            abbyCase={abbyCase}
-            directory={directory}
-            run={activeRun}
-            onLaunch={() => launchRun(abbyCase)}
-            isRunBusy={isRunBusy}
-            patientOnly={selectedRole === 'patient'}
-          />
+          selectedRole === 'patient' && !verifiedPatientRecordIds.has(abbyCase.record.id)
+            ? (
+              <PatientVerificationGate
+                patient={selectedDirectoryPatient}
+                recordId={abbyCase.record.id}
+                onDirectoryChange={setDirectory}
+                onVerified={(recordId) => {
+                  setVerifiedPatientRecordIds((current) => {
+                    const next = new Set(current)
+                    next.add(recordId)
+                    return next
+                  })
+                }}
+              />
+            )
+            : (
+              <PatientChat
+                abbyCase={abbyCase}
+                directory={directory}
+                run={activeRun}
+                onLaunch={() => launchRun(abbyCase)}
+                isRunBusy={isRunBusy}
+                patientOnly={selectedRole === 'patient'}
+              />
+            )
         )}
         {view === 'provider' && directory && (
           <ProviderView
@@ -344,6 +368,96 @@ function App() {
         )}
       </section>
     </main>
+  )
+}
+
+function PatientVerificationGate({
+  patient,
+  recordId,
+  onDirectoryChange,
+  onVerified,
+}: {
+  patient?: DirectoryPerson
+  recordId: string
+  onDirectoryChange: (directory: DirectoryResponse) => void
+  onVerified: (recordId: string) => void
+}) {
+  const [code, setCode] = useState('')
+  const [status, setStatus] = useState('Preparing verification...')
+  const [isSending, setIsSending] = useState(false)
+  const [isVerifying, setIsVerifying] = useState(false)
+
+  const sendCode = useCallback(async () => {
+    if (!patient?.phone) {
+      setStatus('This patient does not have a phone number on file.')
+      return
+    }
+    setIsSending(true)
+    try {
+      const nextDirectory = await sendDirectoryOtp(patient.phone)
+      onDirectoryChange(nextDirectory)
+      setStatus(`Verification code sent to ${maskedPhone(patient.phone)}.`)
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : String(error))
+    } finally {
+      setIsSending(false)
+    }
+  }, [onDirectoryChange, patient?.phone])
+
+  useEffect(() => {
+    void sendCode()
+  }, [sendCode])
+
+  const verifyCode = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!patient?.phone || !code.trim()) return
+    setIsVerifying(true)
+    try {
+      const nextDirectory = await verifyDirectoryOtp(patient.phone, code)
+      onDirectoryChange(nextDirectory)
+      onVerified(recordId)
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : String(error))
+    } finally {
+      setIsVerifying(false)
+    }
+  }
+
+  return (
+    <section className="content-grid patient-verification-workspace">
+      <form className="panel otp-panel patient-verification-panel" onSubmit={verifyCode}>
+        <div className="panel-title-row">
+          <div>
+            <p className="eyebrow">Patient verification</p>
+            <h2>Enter your code</h2>
+          </div>
+          <ShieldCheck size={22} />
+        </div>
+        <p className="verification-copy">
+          Abby needs to verify this phone before opening the check-in chat.
+        </p>
+        <label>
+          <span>Verification code</span>
+          <input
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            value={code}
+            onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+            placeholder="123456"
+            required
+          />
+        </label>
+        <div className="otp-row">
+          <button type="button" className="secondary" onClick={sendCode} disabled={isSending || !patient?.phone}>
+            {isSending ? 'Sending...' : 'Resend'}
+          </button>
+          <span>{status}</span>
+          <button type="submit" disabled={isVerifying || code.trim().length < 4 || !patient?.phone}>
+            {isVerifying ? 'Checking...' : 'Verify'}
+          </button>
+        </div>
+      </form>
+    </section>
   )
 }
 
@@ -921,6 +1035,12 @@ function PatientDetailPanel({
 
 function roleLabel(role: DirectoryRole): string {
   return directoryRoleOptions.find((option) => option.value === role)?.label ?? role
+}
+
+function maskedPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '')
+  const lastFour = digits.slice(-4)
+  return lastFour ? `***-***-${lastFour}` : 'the phone on file'
 }
 
 function hasDirectoryRole(person: DirectoryPerson, role: DirectoryRole): boolean {

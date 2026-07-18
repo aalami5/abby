@@ -51,6 +51,13 @@ type TwilioVerifyConfig = {
   verifyServiceSid: string
 }
 
+type TwilioMessagingConfig = {
+  accountSid: string
+  authToken: string
+  messagingServiceSid?: string
+  fromNumber?: string
+}
+
 type AbbyGlobal = typeof globalThis & {
   abbyDirectoryStore?: DirectoryStore
 }
@@ -89,7 +96,14 @@ export default async function handler(request: VercelRequest, response: VercelRe
         current.otp[phone] = { code, expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString() }
         await sendOtp(phone, code)
         await writeStore(current)
-        response.status(200).json({ ...toResponse(current), otp: { mode: hasTwilioVerify() ? 'twilio-verify' : 'mock', phone, demoCode: hasTwilioVerify() ? undefined : code } })
+        response.status(200).json({
+          ...toResponse(current),
+          otp: {
+            mode: otpMode(),
+            phone,
+            demoCode: hasTwilioOtp() ? undefined : code,
+          },
+        })
         return
       }
 
@@ -145,7 +159,7 @@ function toResponse(current: DirectoryStore) {
   return {
     service: 'abby',
     persistence: googlePersistenceLabel(),
-    auth: hasTwilioVerify() ? 'twilio-verify' : 'mock-otp',
+    auth: hasTwilioVerify() ? 'twilio-verify' : hasTwilioMessaging() ? 'twilio-sms' : 'mock-otp',
     people,
     agentInstructionReferences: current.agentInstructionReferences ?? seedAgentInstructionReferences(),
     counts: {
@@ -393,9 +407,12 @@ function syntheticPhone(index: number): string {
   return `+1555012${String(index + 1).padStart(4, '0')}`
 }
 
-async function sendOtp(phone: string, _code: string) {
+async function sendOtp(phone: string, code: string) {
   const twilio = getTwilioVerifyConfig()
-  if (!twilio) return
+  if (!twilio) {
+    await sendOtpWithMessaging(phone, code)
+    return
+  }
   const twilioResponse = await fetch(`https://verify.twilio.com/v2/Services/${twilio.verifyServiceSid}/Verifications`, {
     method: 'POST',
     headers: {
@@ -403,6 +420,24 @@ async function sendOtp(phone: string, _code: string) {
       'content-type': 'application/x-www-form-urlencoded',
     },
     body: new URLSearchParams({ To: phone, Channel: 'sms' }),
+  })
+  if (!twilioResponse.ok) throw new Error(`Twilio returned ${twilioResponse.status}`)
+}
+
+async function sendOtpWithMessaging(phone: string, code: string) {
+  const twilio = getTwilioMessagingConfig()
+  if (!twilio) return
+  const twilioResponse = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilio.accountSid}/Messages.json`, {
+    method: 'POST',
+    headers: {
+      authorization: twilioAuthorization(twilio),
+      'content-type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      To: phone,
+      Body: `Your Abby verification code is ${code}. It expires in 10 minutes.`,
+      ...(twilio.messagingServiceSid ? { MessagingServiceSid: twilio.messagingServiceSid } : { From: twilio.fromNumber ?? '' }),
+    }),
   })
   if (!twilioResponse.ok) throw new Error(`Twilio returned ${twilioResponse.status}`)
 }
@@ -426,6 +461,20 @@ function hasTwilioVerify() {
   return Boolean(getTwilioVerifyConfig())
 }
 
+function hasTwilioMessaging() {
+  return Boolean(getTwilioMessagingConfig())
+}
+
+function hasTwilioOtp() {
+  return hasTwilioVerify() || hasTwilioMessaging()
+}
+
+function otpMode(): 'twilio-verify' | 'twilio-sms' | 'mock' {
+  if (hasTwilioVerify()) return 'twilio-verify'
+  if (hasTwilioMessaging()) return 'twilio-sms'
+  return 'mock'
+}
+
 function getTwilioVerifyConfig(): TwilioVerifyConfig | undefined {
   const accountSid = process.env.TWILIO_ACCOUNT_SID
   const authToken = process.env.TWILIO_AUTH_TOKEN
@@ -434,6 +483,15 @@ function getTwilioVerifyConfig(): TwilioVerifyConfig | undefined {
   return { accountSid, authToken, verifyServiceSid }
 }
 
-function twilioAuthorization(config: TwilioVerifyConfig): string {
+function getTwilioMessagingConfig(): TwilioMessagingConfig | undefined {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID
+  const authToken = process.env.TWILIO_AUTH_TOKEN
+  const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID_ABBY ?? process.env.TWILIO_MESSAGING_SERVICE_SID
+  const fromNumber = process.env.TWILIO_FROM_NUMBER_ABBY ?? process.env.TWILIO_FROM_NUMBER
+  if (!accountSid || !authToken || (!messagingServiceSid && !fromNumber)) return undefined
+  return { accountSid, authToken, messagingServiceSid, fromNumber }
+}
+
+function twilioAuthorization(config: TwilioVerifyConfig | TwilioMessagingConfig): string {
   return `Basic ${btoa(`${config.accountSid}:${config.authToken}`)}`
 }
