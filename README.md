@@ -88,14 +88,23 @@ ABBY_CLAUDE_MODEL=claude-sonnet-4-6
 
 `CLAUDE_API_KEY` is accepted as a fallback when `ANTHROPIC_API_KEY` is not set.
 
-Optional Google Cloud Firestore env vars:
+Optional Google Cloud Firestore configuration for local development with
+`gcloud auth application-default login`:
 
 ```text
 GOOGLE_CLOUD_PROJECT
-GOOGLE_CLIENT_EMAIL
-GOOGLE_PRIVATE_KEY
+GOOGLE_USE_ADC=true
 GOOGLE_FIRESTORE_DATABASE=(default)
 ABBY_FIRESTORE_COLLECTION=abby_app_state
+```
+
+For deployments that cannot use Application Default Credentials, provide a
+service-account JSON path or its individual credential fields:
+
+```text
+GOOGLE_APPLICATION_CREDENTIALS
+GOOGLE_CLIENT_EMAIL
+GOOGLE_PRIVATE_KEY
 ```
 
 Optional Twilio OTP env vars:

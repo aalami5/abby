@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { GoogleAuth } from 'google-auth-library'
+
 declare const process: {
   env: Record<string, string | undefined>
 }
@@ -8,9 +11,18 @@ type TokenCache = {
 }
 
 let tokenCache: TokenCache | undefined
+let serviceAccountCache: ServiceAccountCredential | undefined
+const googleAuth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/datastore'] })
+
+type ServiceAccountCredential = {
+  projectId: string
+  clientEmail: string
+  privateKey: string
+}
 
 export function hasGoogleCloudDb() {
-  return Boolean(getProjectId() && process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY)
+  const credential = getServiceAccountCredential()
+  return Boolean(getProjectId() && (shouldUseApplicationDefaultCredentials() || (credential.clientEmail && credential.privateKey)))
 }
 
 export function googlePersistenceLabel() {
@@ -59,6 +71,15 @@ async function getAccessToken() {
   const now = Math.floor(Date.now() / 1000)
   if (tokenCache && tokenCache.expiresAt - 60 > now) return tokenCache.accessToken
 
+  if (shouldUseApplicationDefaultCredentials()) {
+    const client = await googleAuth.getClient()
+    const result = await client.getAccessToken()
+    const accessToken = typeof result === 'string' ? result : result.token
+    if (!accessToken) throw new Error('Google Application Default Credentials returned no access token')
+    tokenCache = { accessToken, expiresAt: now + 3000 }
+    return accessToken
+  }
+
   const assertion = await signJwt(now)
   const response = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
@@ -81,8 +102,7 @@ async function getAccessToken() {
 }
 
 async function signJwt(now: number) {
-  const clientEmail = process.env.GOOGLE_CLIENT_EMAIL ?? ''
-  const privateKey = normalizePrivateKey(process.env.GOOGLE_PRIVATE_KEY ?? '')
+  const { clientEmail, privateKey } = getServiceAccountCredential()
   const header = base64Url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }))
   const claim = base64Url(JSON.stringify({
     iss: clientEmail,
@@ -112,7 +132,45 @@ function documentUrl(documentId: string) {
 }
 
 function getProjectId() {
-  return process.env.GOOGLE_CLOUD_PROJECT ?? process.env.GCP_PROJECT_ID ?? ''
+  return process.env.GOOGLE_CLOUD_PROJECT
+    ?? process.env.GCP_PROJECT_ID
+    ?? getServiceAccountCredential().projectId
+}
+
+function shouldUseApplicationDefaultCredentials() {
+  return process.env.GOOGLE_USE_ADC === 'true'
+}
+
+function getServiceAccountCredential(): ServiceAccountCredential {
+  if (serviceAccountCache) return serviceAccountCache
+
+  const envCredential = {
+    projectId: process.env.GOOGLE_CLOUD_PROJECT ?? process.env.GCP_PROJECT_ID ?? '',
+    clientEmail: process.env.GOOGLE_CLIENT_EMAIL ?? '',
+    privateKey: normalizePrivateKey(process.env.GOOGLE_PRIVATE_KEY ?? ''),
+  }
+  if (envCredential.clientEmail && envCredential.privateKey) {
+    serviceAccountCache = envCredential
+    return envCredential
+  }
+
+  const credentialPath = process.env.GOOGLE_APPLICATION_CREDENTIALS
+  if (!credentialPath) return envCredential
+  try {
+    const file = JSON.parse(readFileSync(credentialPath, 'utf8')) as {
+      project_id?: string
+      client_email?: string
+      private_key?: string
+    }
+    serviceAccountCache = {
+      projectId: file.project_id ?? envCredential.projectId,
+      clientEmail: file.client_email ?? '',
+      privateKey: normalizePrivateKey(file.private_key ?? ''),
+    }
+    return serviceAccountCache
+  } catch {
+    return envCredential
+  }
 }
 
 function normalizePrivateKey(value: string) {
