@@ -552,6 +552,15 @@ function Header({
   )
 }
 
+function SaveNotice({ message }: { message: string }) {
+  return (
+    <div className="save-notice" role="status" aria-live="polite">
+      <Check size={17} />
+      <span>{message}</span>
+    </div>
+  )
+}
+
 function AdminView({
   directory,
   adminSection,
@@ -590,6 +599,7 @@ function AdminView({
   })
   const [adminMessage, setAdminMessage] = useState('')
   const [patientMessage, setPatientMessage] = useState('')
+  const [patientSaveNotice, setPatientSaveNotice] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [isPatientSaving, setIsPatientSaving] = useState(false)
   const patients = directory.people.filter((person) => person.roles.includes('patient'))
@@ -604,6 +614,12 @@ function AdminView({
     setSelectedPatientId(selectedPatient.id)
     setPatientForm(personToPatientForm(selectedPatient))
   }, [selectedPatient])
+
+  useEffect(() => {
+    if (!patientSaveNotice) return
+    const timeout = window.setTimeout(() => setPatientSaveNotice(''), 2200)
+    return () => window.clearTimeout(timeout)
+  }, [patientSaveNotice])
 
   const savePerson = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -670,8 +686,13 @@ function AdminView({
         createdAt: patientForm.createdAt || undefined,
       })
       onDirectoryChange(nextDirectory)
-      setSelectedPatientId(patientForm.id)
-      setPatientMessage(`${patientForm.name} updated`)
+      const savedPatient = nextDirectory.people.find((person) => person.id === patientForm.id)
+      if (savedPatient) {
+        setSelectedPatientId(savedPatient.id)
+        setPatientForm(personToPatientForm(savedPatient))
+      }
+      setPatientMessage(`${savedPatient?.name ?? patientForm.name} saved`)
+      setPatientSaveNotice(`${savedPatient?.name ?? patientForm.name} saved`)
     } catch (error) {
       setPatientMessage(error instanceof Error ? error.message : String(error))
     } finally {
@@ -681,6 +702,7 @@ function AdminView({
 
   return (
     <section className="content-grid admin-clean-grid">
+      {patientSaveNotice && <SaveNotice message={patientSaveNotice} />}
       {adminSection === 'users' && (
         <div className="admin-directory-workspace">
           <form className="panel person-form compact-patient-form" onSubmit={savePerson}>

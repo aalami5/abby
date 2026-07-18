@@ -1390,6 +1390,41 @@ textarea {
   font-weight: 900;
 }
 
+.save-notice {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 30;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid rgba(181, 28, 8, 0.18);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--abridge-dark);
+  box-shadow: 0 18px 36px rgba(31, 41, 51, 0.14);
+  padding: 0 14px;
+  font-weight: 900;
+  animation: save-pop 2200ms ease forwards;
+}
+
+@keyframes save-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  12%,
+  78% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.99);
+  }
+}
+
 .people-list {
   display: grid;
   gap: 10px;
