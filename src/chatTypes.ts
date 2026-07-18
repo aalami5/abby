@@ -77,11 +77,14 @@ export function buildChatContext(abbyCase: AbbyCase, provider?: DirectoryPerson)
 }
 
 export function initialAbbyMessage(abbyCase: AbbyCase, provider?: DirectoryPerson): AbbyChatMessage {
-  const specialist = provider?.name ?? `your ${inferSpecialty(abbyCase.record.metadata.visit_title)} specialist`
+  const specialist = provider?.id === 'person-oliver-aalami'
+    ? 'Dr. Oliver Aalami'
+    : provider?.name ?? `your ${inferSpecialty(abbyCase.record.metadata.visit_title)} specialist`
+  const specialty = provider?.specialty || inferSpecialty(abbyCase.record.metadata.visit_title)
   return {
     id: `abby-welcome-${abbyCase.record.id}`,
     sender: 'abby',
-    content: `Hi ${abbyCase.patientName.split(' ')[0] || 'there'}, I am Abby, checking in on behalf of ${specialist}. How are things going since your ${abbyCase.record.metadata.visit_title.toLowerCase()}?`,
+    content: `Hi ${abbyCase.patientName.split(' ')[0] || 'there'}, I am Abby, ${specialist}'s assistant. I will help with a quick ${specialty.toLowerCase()} check-in before your visit.`,
     timestamp: new Date().toISOString(),
   }
 }

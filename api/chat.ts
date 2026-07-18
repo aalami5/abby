@@ -53,12 +53,6 @@ export default async function handler(request: VercelRequest, response: VercelRe
   }
 
   try {
-    const apiKey = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY
-    if (!apiKey) {
-      response.status(500).json({ error: 'Claude is not configured. Set ANTHROPIC_API_KEY in Vercel.' })
-      return
-    }
-
     const body = parseBody(request.body)
     const messages = normalizeMessages(body.messages)
     if (!messages.length) {
@@ -67,6 +61,15 @@ export default async function handler(request: VercelRequest, response: VercelRe
     }
 
     const context = normalizeContext(body.context)
+    const apiKey = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY
+    if (!apiKey) {
+      response.status(200).json({
+        message: fallbackCheckInReply(context),
+        model: 'abby-fallback',
+      })
+      return
+    }
+
     const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -114,6 +117,23 @@ export default async function handler(request: VercelRequest, response: VercelRe
   } catch (error) {
     response.status(400).json({ error: error instanceof Error ? error.message : String(error) })
   }
+}
+
+function fallbackCheckInReply(context: ChatContext): ChatMessage & { id: string; timestamp: string } {
+  const patient = context.patient ?? {}
+  const specialist = context.specialist ?? {}
+  const patientName = firstName(patient.name) || 'there'
+  const specialty = specialist.specialty?.trim().toLowerCase() || 'care'
+  return {
+    id: `abby-fallback-${Date.now()}`,
+    sender: 'abby',
+    content: `Hi ${patientName}, I am Abby, checking in before your ${specialty} visit. What is the main thing you want Dr. Aalami to know today?`,
+    timestamp: new Date().toISOString(),
+  }
+}
+
+function firstName(name: unknown): string {
+  return typeof name === 'string' ? name.trim().split(/\s+/)[0] || '' : ''
 }
 
 function buildSystemPrompt(context: ChatContext): string {
