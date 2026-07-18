@@ -633,7 +633,7 @@ function AdminView({
             eyebrow="Patients"
             title={`${patients.length} patients`}
             ariaLabel="Patients"
-            onEdit={editPerson}
+            onEdit={selectPatient}
             onOpenPatient={onOpenPatient}
             selectedUserId={selectedPatient?.id}
             onSelect={selectPatient}
