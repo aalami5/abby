@@ -226,8 +226,7 @@ select {
 
 .topbar-left,
 .topbar-account,
-.role-select,
-.org-select {
+.role-select {
   display: flex;
   align-items: center;
 }
@@ -256,7 +255,6 @@ select {
   text-overflow: ellipsis;
 }
 
-.org-select,
 .role-select {
   min-height: 38px;
   gap: 8px;
@@ -269,12 +267,6 @@ select {
   font-size: 14px;
   font-weight: 900;
   cursor: pointer;
-}
-
-.org-select {
-  color: var(--abridge-dark);
-  background: #fff8f6;
-  border-color: #f5d7d0;
 }
 
 .role-menu-shell {
@@ -307,7 +299,7 @@ select {
 }
 
 .role-dropdown button {
-  min-height: 86px;
+  min-height: 54px;
   border: 0;
   border-radius: 8px;
   background: transparent;
@@ -327,21 +319,10 @@ select {
   background: #f6f6f7;
 }
 
-.role-dropdown button > span {
-  display: grid;
-  gap: 5px;
-}
-
 .role-dropdown strong {
-  font-size: 22px;
+  font-size: 18px;
   line-height: 1.1;
-  font-weight: 500;
-}
-
-.role-dropdown small {
-  color: var(--muted);
-  font-size: 19px;
-  line-height: 1.2;
+  font-weight: 700;
 }
 
 .role-select select {

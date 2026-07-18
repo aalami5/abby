@@ -5,7 +5,7 @@ Abby is a local hackathon prototype for a patient-state agent that sits around A
 The app uses the synthetic Abridge ambient/FHIR dataset to demonstrate:
 
 - admin/operator outreach setup
-- superadmin user, patient, provider, and multi-role directory setup
+- admin, provider, and patient directory setup
 - phone-number OTP authentication flow with Twilio Verify-ready endpoints
 - transcript-grounded patient intake
 - provider Action Briefs
@@ -43,7 +43,7 @@ https://abby-mocha.vercel.app/api/directory
 https://abby-mocha.vercel.app/api/chat
 ```
 
-Run state uses the `/api/runs` lifecycle API. Superadmin people, role, patient, provider, and OTP state use `/api/directory`. Patient chat uses `/api/chat`, which calls Claude server-side. In production, the APIs use Google Cloud Firestore when the Google service-account environment variables are configured; otherwise they fall back to serverless memory, which is enough to prove the flow but not durable across cold starts.
+Run state uses the `/api/runs` lifecycle API. Admin, provider, patient, and OTP state use `/api/directory`. Patient chat uses `/api/chat`, which calls Claude server-side. In production, the APIs use Google Cloud Firestore when the Google service-account environment variables are configured; otherwise they fall back to serverless memory, which is enough to prove the flow but not durable across cold starts.
 
 ## Data
 

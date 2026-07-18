@@ -25,8 +25,8 @@ const capabilities = [
     status: 'implemented',
   },
   {
-    id: 'superadmin-directory',
-    label: 'Superadmin people, patient, provider, and multi-role directory',
+    id: 'role-directory',
+    label: 'Admin, provider, and patient directory',
     status: 'implemented',
   },
   {

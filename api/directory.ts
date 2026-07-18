@@ -239,10 +239,10 @@ function normalizeSeededStore(current: DirectoryStore): DirectoryStore {
 }
 
 function seedPeople(): DirectoryPerson[] {
-  return [oliverSuperadmin(), ...syntheticPatients()]
+  return [oliverAdmin(), ...syntheticPatients()]
 }
 
-function oliverSuperadmin(): DirectoryPerson {
+function oliverAdmin(): DirectoryPerson {
   return {
     id: 'person-oliver-aalami',
     name: 'Oliver Aalami',

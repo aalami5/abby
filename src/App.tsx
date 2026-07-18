@@ -1,6 +1,5 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import {
-  Building2,
   CalendarCheck,
   Check,
   ChevronDown,
@@ -34,7 +33,6 @@ import type { AbbyCase, AbbyRun, DirectoryPerson, DirectoryResponse, DirectoryRo
 
 type View = 'admin' | 'patient' | 'provider'
 type AdminSection = 'users' | 'patients'
-type WorkspaceRole = 'admin' | 'coach' | 'kaiser'
 type DirectoryUserFilter = 'providers' | 'patients' | 'admins'
 
 const menuItems: Array<
@@ -66,18 +64,12 @@ const directoryFilterOptions: Array<{
   { value: 'admins', label: 'Admins', description: 'Workspace access', role: 'admin', icon: ShieldCheck },
 ]
 
-const workspaceRoleOptions: Array<{ value: WorkspaceRole; label: string; description: string }> = [
-  { value: 'admin', label: 'Admin', description: 'All access' },
-  { value: 'coach', label: 'Coach', description: 'Assigned patients' },
-  { value: 'kaiser', label: 'Kaiser', description: 'Get Set view' },
-]
-
 function App() {
   const [records, setRecords] = useState<EncounterRecord[]>([])
   const [selectedId, setSelectedId] = useState('')
   const [view, setView] = useState<View>('admin')
   const [adminSection, setAdminSection] = useState<AdminSection>('users')
-  const [selectedRole, setSelectedRole] = useState<WorkspaceRole>('admin')
+  const [selectedRole, setSelectedRole] = useState<DirectoryRole>('admin')
   const [loadingError, setLoadingError] = useState('')
   const [runsByCase, setRunsByCase] = useState<Record<string, AbbyRun>>({})
   const [persistence, setPersistence] = useState('loading')
@@ -268,20 +260,15 @@ function Header({
   persistence: string
   view: View
   directory: DirectoryResponse | null
-  selectedRole: WorkspaceRole
-  onSelectedRoleChange: (role: WorkspaceRole) => void
+  selectedRole: DirectoryRole
+  onSelectedRoleChange: (role: DirectoryRole) => void
 }) {
   const { record } = abbyCase
   const [isRoleMenuOpen, setIsRoleMenuOpen] = useState(false)
-  const selectedRoleOption = workspaceRoleOptions.find((role) => role.value === selectedRole) ?? workspaceRoleOptions[0]
+  const selectedRoleOption = directoryRoleOptions.find((role) => role.value === selectedRole) ?? directoryRoleOptions[0]
   return (
     <header className="topbar">
       <div className="topbar-left">
-        <button type="button" className="org-select" aria-label="Selected workspace">
-          <Building2 size={18} />
-          <span>Abby</span>
-          <ChevronDown size={17} />
-        </button>
         <div className="role-menu-shell">
           <button
             type="button"
@@ -296,7 +283,7 @@ function Header({
           </button>
           {isRoleMenuOpen && (
             <div className="role-dropdown" role="menu">
-              {workspaceRoleOptions.map((role) => (
+              {directoryRoleOptions.map((role) => (
                 <button
                   key={role.value}
                   type="button"
@@ -310,7 +297,6 @@ function Header({
                 >
                   <span>
                     <strong>{role.label}</strong>
-                    <small>{role.description}</small>
                   </span>
                   {role.value === selectedRole && <Check size={18} />}
                 </button>
@@ -809,12 +795,11 @@ function PatientDetailPanel({
 }
 
 function roleLabel(role: DirectoryRole): string {
-  if (role === 'superadmin') return 'Admin'
   return directoryRoleOptions.find((option) => option.value === role)?.label ?? role
 }
 
 function hasDirectoryRole(person: DirectoryPerson, role: DirectoryRole): boolean {
-  if (role === 'admin') return person.roles.some((personRole) => personRole === 'admin' || personRole === 'superadmin')
+  if (role === 'admin') return person.roles.some((personRole) => ['admin', 'superadmin'].includes(String(personRole)))
   return person.roles.includes(role)
 }
 
@@ -829,7 +814,7 @@ function adminCount(directory: DirectoryResponse): number {
 }
 
 function normalizeDirectoryRoles(roles: DirectoryRole[]): DirectoryRole[] {
-  return roles.map((role) => role === 'superadmin' ? 'admin' : role)
+  return roles.map((role) => String(role) === 'superadmin' ? 'admin' : role)
 }
 
 function ageFromBirthDate(birthDate: string): number {

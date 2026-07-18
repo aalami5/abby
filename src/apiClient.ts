@@ -27,7 +27,7 @@ function writeLocalRuns(runsByCase: Record<string, AbbyRun>) {
 }
 
 function defaultDirectory(): DirectoryResponse {
-  return toLocalDirectoryResponse([oliverSuperadmin()])
+  return toLocalDirectoryResponse([oliverAdmin()])
 }
 
 async function readLocalDirectory(): Promise<DirectoryResponse> {
@@ -226,7 +226,7 @@ export async function verifyDirectoryOtp(phone: string, code: string): Promise<D
 async function seededDirectory(): Promise<DirectoryResponse> {
   try {
     const records = await loadRecords()
-    return toLocalDirectoryResponse([oliverSuperadmin(), ...records.map(syntheticPatient)])
+    return toLocalDirectoryResponse([oliverAdmin(), ...records.map(syntheticPatient)])
   } catch {
     return defaultDirectory()
   }
@@ -268,7 +268,7 @@ function normalizeSeededDirectory(current: DirectoryResponse, seededPeople: Dire
   })
 }
 
-function oliverSuperadmin(): DirectoryPerson {
+function oliverAdmin(): DirectoryPerson {
   return {
     id: 'person-oliver-aalami',
     name: 'Oliver Aalami',
@@ -280,11 +280,11 @@ function oliverSuperadmin(): DirectoryPerson {
 }
 
 function hasAdminRole(person: DirectoryPerson): boolean {
-  return person.roles.some((role) => role === 'admin' || role === 'superadmin')
+  return person.roles.some((role) => ['admin', 'superadmin'].includes(String(role)))
 }
 
 function normalizeDirectoryRoles(roles: DirectoryPerson['roles']): DirectoryPerson['roles'] {
-  return roles.map((role) => role === 'superadmin' ? 'admin' : role)
+  return roles.map((role) => String(role) === 'superadmin' ? 'admin' : role)
 }
 
 function syntheticPatient(record: EncounterRecord, index: number): DirectoryPerson {
