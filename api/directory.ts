@@ -1,4 +1,5 @@
 import { googlePersistenceLabel, readGoogleJson, writeGoogleJson } from './googleCloudStore.js'
+import records from '../public/data/synthetic-ambient-fhir-25.json' with { type: 'json' }
 
 type Role = 'superadmin' | 'provider' | 'patient'
 
@@ -9,6 +10,13 @@ type DirectoryPerson = {
   roles: Role[]
   specialty?: string
   primaryProviderId?: string
+  gender?: string
+  birthDate?: string
+  city?: string
+  state?: string
+  visitTitle?: string
+  sourceRecordId?: string
+  synthetic?: boolean
   createdAt: string
   updatedAt: string
 }
@@ -37,47 +45,7 @@ declare const process: {
 
 const firestoreDocumentId = 'directory-v1'
 const seededAt = '2026-07-18T19:30:00Z'
-const store = ((globalThis as AbbyGlobal).abbyDirectoryStore ??= {
-  people: [
-    {
-      id: 'person-oliver-aalami',
-      name: 'Oliver Aalami',
-      phone: '+16503153236',
-      roles: ['superadmin'],
-      createdAt: seededAt,
-      updatedAt: seededAt,
-    },
-    {
-      id: 'person-maya-chen',
-      name: 'Maya Chen',
-      phone: '+14155550118',
-      roles: ['provider'],
-      specialty: 'Care Navigation',
-      createdAt: seededAt,
-      updatedAt: seededAt,
-    },
-    {
-      id: 'person-lena-morales',
-      name: 'Lena Morales',
-      phone: '+14155550124',
-      roles: ['patient'],
-      primaryProviderId: 'person-maya-chen',
-      createdAt: seededAt,
-      updatedAt: seededAt,
-    },
-    {
-      id: 'person-sam-patel',
-      name: 'Sam Patel',
-      phone: '+14155550142',
-      roles: ['patient', 'provider'],
-      specialty: 'Physical Therapy',
-      primaryProviderId: 'person-oliver-aalami',
-      createdAt: seededAt,
-      updatedAt: seededAt,
-    },
-  ],
-  otp: {},
-})
+const store = ((globalThis as AbbyGlobal).abbyDirectoryStore ??= { people: seedPeople(), otp: {} })
 
 export default async function handler(request: VercelRequest, response: VercelResponse) {
   try {
@@ -122,7 +90,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
       if (existingIndex >= 0) current.people[existingIndex] = { ...current.people[existingIndex], ...person, updatedAt: new Date().toISOString() }
       else current.people.unshift(person)
       await writeStore(current)
-      response.status(200).json(toResponse(current))
+      response.status(200).json(toResponse(store))
       return
     }
 
@@ -133,7 +101,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
       const before = current.people.length
       current.people = current.people.filter((person) => person.id !== id && person.phone !== phone)
       await writeStore(current)
-      response.status(200).json({ ...toResponse(current), removed: before - current.people.length })
+      response.status(200).json({ ...toResponse(store), removed: before - current.people.length })
       return
     }
 
@@ -211,13 +179,100 @@ function slugify(value: string): string {
 }
 
 async function readStore(): Promise<DirectoryStore> {
-  return readGoogleJson(firestoreDocumentId, store)
+  const current = await readGoogleJson(firestoreDocumentId, store)
+  const normalized = normalizeSeededStore(current)
+  store.people = normalized.people
+  store.otp = normalized.otp
+  return normalized
 }
 
 async function writeStore(nextStore: DirectoryStore): Promise<void> {
-  store.people = nextStore.people
-  store.otp = nextStore.otp
-  await writeGoogleJson(firestoreDocumentId, nextStore)
+  const normalized = normalizeSeededStore(nextStore)
+  store.people = normalized.people
+  store.otp = normalized.otp
+  await writeGoogleJson(firestoreDocumentId, normalized)
+}
+
+function normalizeSeededStore(current: DirectoryStore): DirectoryStore {
+  const seeds = seedPeople()
+  const seedIds = new Set(seeds.map((person) => person.id))
+  const byId = new Map(current.people.map((person) => [person.id, person]))
+  const people = seeds.map((seed) => {
+    const existing = byId.get(seed.id)
+    return existing
+      ? {
+          ...seed,
+          phone: existing.phone || seed.phone,
+          createdAt: existing.createdAt || seed.createdAt,
+          updatedAt: existing.updatedAt || seed.updatedAt,
+        }
+      : seed
+  })
+  const removedStarterIds = new Set(['person-maya-chen', 'person-lena-morales', 'person-sam-patel'])
+  const additionalPatients = current.people.filter((person) => (
+    person.roles.includes('patient') && !seedIds.has(person.id) && !removedStarterIds.has(person.id)
+  ))
+  for (const patient of additionalPatients) {
+    if (!people.some((person) => person.id === patient.id)) people.push(patient)
+  }
+  return { people, otp: current.otp ?? {} }
+}
+
+function seedPeople(): DirectoryPerson[] {
+  return [oliverSuperadmin(), ...syntheticPatients()]
+}
+
+function oliverSuperadmin(): DirectoryPerson {
+  return {
+    id: 'person-oliver-aalami',
+    name: 'Oliver Aalami',
+    phone: '+16503153236',
+    roles: ['superadmin'],
+    createdAt: seededAt,
+    updatedAt: seededAt,
+  }
+}
+
+function syntheticPatients(): DirectoryPerson[] {
+  return (records as Array<{
+    id: string
+    metadata: { patient_id: string; visit_title: string }
+    patient_context: {
+      patient: {
+        gender?: string
+        birthDate?: string
+        name?: Array<{ family?: string; given?: string[] }>
+        address?: Array<{ city?: string; state?: string }>
+      }
+    }
+  }>).map((record, index) => {
+    const patient = record.patient_context.patient
+    const address = patient.address?.[0]
+    return {
+      id: `patient-${record.metadata.patient_id}`,
+      name: patientName(patient),
+      phone: syntheticPhone(index),
+      roles: ['patient'],
+      gender: patient.gender,
+      birthDate: patient.birthDate,
+      city: address?.city,
+      state: address?.state,
+      visitTitle: record.metadata.visit_title,
+      sourceRecordId: record.id,
+      synthetic: true,
+      createdAt: seededAt,
+      updatedAt: seededAt,
+    }
+  })
+}
+
+function patientName(patient: { name?: Array<{ family?: string; given?: string[] }> }): string {
+  const official = patient.name?.[0]
+  return [official?.given?.[0], official?.family].filter(Boolean).join(' ') || 'Synthetic patient'
+}
+
+function syntheticPhone(index: number): string {
+  return `+1555012${String(index + 1).padStart(4, '0')}`
 }
 
 async function sendOtp(phone: string, _code: string) {

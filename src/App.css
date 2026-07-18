@@ -1,23 +1,23 @@
 :root {
-  --ink: #251b18;
-  --muted: #776963;
-  --line: #f0d8cf;
+  --ink: #1f2933;
+  --muted: #667085;
+  --line: #d9e2ec;
   --paper: #ffffff;
-  --wash: #fff8f4;
-  --cream: #fff1e8;
-  --peach: #ffd8c8;
-  --apricot: #ffb69b;
+  --wash: #f7f9fb;
+  --cream: #eef4f8;
+  --peach: #d8e3ea;
+  --apricot: #bfd0dc;
   --abridge: #ef2507;
   --abridge-hot: #ff3a12;
   --abridge-dark: #b51c08;
-  --charcoal: #261715;
-  --clay: #8d3a28;
+  --charcoal: #17212b;
+  --clay: #52606d;
   --sky: #edf7fa;
   --gold: #ffd166;
   --coral: #ff8a70;
   --rose: #ffe2dc;
-  --shadow: 0 22px 56px rgba(181, 28, 8, 0.13);
-  --soft-shadow: 0 12px 28px rgba(181, 28, 8, 0.09);
+  --shadow: 0 14px 32px rgba(31, 41, 51, 0.08);
+  --soft-shadow: 0 8px 18px rgba(31, 41, 51, 0.08);
 }
 
 .app-shell {
@@ -25,17 +25,14 @@
   width: 100%;
   display: grid;
   grid-template-columns: 286px minmax(0, 1fr);
-  background:
-    linear-gradient(135deg, rgba(255, 241, 232, 0.98), rgba(255, 248, 244, 0.94) 48%, rgba(255, 255, 255, 0.9)),
-    var(--wash);
+  background: var(--wash);
   color: var(--ink);
 }
 
 .sidebar {
   min-height: 100svh;
   border-right: 1px solid var(--line);
-  background: rgba(255, 252, 249, 0.88);
-  backdrop-filter: blur(22px);
+  background: #ffffff;
   padding: 22px;
   display: flex;
   flex-direction: column;
@@ -182,9 +179,9 @@ select {
 
 .nav button:hover,
 .nav button.active {
-  background: linear-gradient(135deg, #ffffff, var(--cream));
-  border-color: var(--peach);
-  color: var(--abridge-dark);
+  background: var(--cream);
+  border-color: var(--line);
+  color: var(--ink);
   box-shadow: var(--soft-shadow);
 }
 
@@ -204,8 +201,7 @@ select {
 .topbar {
   min-height: 78px;
   border-bottom: 1px solid var(--line);
-  background: rgba(255, 252, 249, 0.88);
-  backdrop-filter: blur(22px);
+  background: #ffffff;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -279,7 +275,7 @@ select {
 }
 
 .admin-simple-grid {
-  grid-template-columns: minmax(320px, 0.9fr) minmax(320px, 0.9fr) minmax(360px, 1.1fr);
+  grid-template-columns: 280px minmax(0, 1fr);
   align-items: start;
 }
 
@@ -291,7 +287,7 @@ select {
 .phone-surface {
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.9);
+  background: #ffffff;
   box-shadow: var(--shadow);
 }
 
@@ -737,6 +733,67 @@ meter {
   gap: 12px;
 }
 
+.admin-tabs {
+  display: grid;
+  gap: 8px;
+  position: sticky;
+  top: 102px;
+}
+
+.admin-tabs button {
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 900;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 0 12px;
+  cursor: pointer;
+}
+
+.admin-tabs button.active {
+  border-color: var(--charcoal);
+  color: var(--ink);
+  background: var(--cream);
+}
+
+.superadmin-card,
+.patient-roster {
+  grid-column: 2;
+}
+
+.superadmin-card {
+  max-width: 620px;
+}
+
+.superadmin-card h1 {
+  font-size: 32px;
+}
+
+.superadmin-line {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 12px;
+  border-top: 1px solid var(--line);
+  padding: 13px 0;
+}
+
+.superadmin-line span {
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.compact-patient-form {
+  grid-column: 1;
+  position: sticky;
+  top: 102px;
+}
+
 .person-form label,
 .otp-panel label {
   display: grid;
@@ -855,7 +912,7 @@ input {
 }
 
 .patient-roster {
-  grid-column: span 2;
+  min-width: 0;
 }
 
 .patient-table {
@@ -868,7 +925,7 @@ input {
 .patient-table-head,
 .patient-table-row {
   display: grid;
-  grid-template-columns: minmax(140px, 1fr) minmax(142px, 0.86fr) minmax(150px, 0.9fr) minmax(128px, 0.7fr) 92px;
+  grid-template-columns: minmax(120px, 0.8fr) minmax(122px, 0.7fr) minmax(86px, 0.5fr) minmax(170px, 1.2fr) 88px;
   align-items: center;
   gap: 12px;
   padding: 12px;
@@ -895,6 +952,23 @@ input {
 
 .phone-value {
   font-weight: 900;
+}
+
+.patient-actions {
+  display: grid;
+  gap: 6px;
+}
+
+.quiet-button {
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: #ffffff;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
 }
 
 .person-tags span {
@@ -991,7 +1065,7 @@ input {
   }
 
   .nav {
-    grid-template-columns: repeat(7, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 4px;
     border: 1px solid var(--line);
     border-radius: 8px;
@@ -1020,6 +1094,14 @@ input {
 
   .patient-roster {
     grid-column: auto;
+  }
+
+  .admin-tabs,
+  .compact-patient-form,
+  .superadmin-card,
+  .patient-roster {
+    grid-column: auto;
+    position: static;
   }
 
   .topbar {
@@ -1264,6 +1346,7 @@ input {
   .person-form > button,
   .otp-row button,
   .edit-button,
+  .quiet-button,
   .run-summary button,
   .approval-row button,
   .bundle-actions button {
@@ -1306,6 +1389,11 @@ input {
 
   .patient-table-row > span {
     overflow-wrap: anywhere;
+  }
+
+  .patient-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
   }
 
   .person-row > div:first-child span,

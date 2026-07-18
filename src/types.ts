@@ -111,6 +111,13 @@ export type DirectoryPerson = {
   roles: DirectoryRole[]
   specialty?: string
   primaryProviderId?: string
+  gender?: string
+  birthDate?: string
+  city?: string
+  state?: string
+  visitTitle?: string
+  sourceRecordId?: string
+  synthetic?: boolean
   createdAt: string
   updatedAt: string
 }

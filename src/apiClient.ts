@@ -1,5 +1,5 @@
-import { approveRun, createRun, executeApprovedRun } from './abbyEngine'
-import type { AbbyCase, AbbyRun, DirectoryPerson, DirectoryResponse } from './types'
+import { approveRun, createRun, executeApprovedRun, getPatientName, loadRecords } from './abbyEngine'
+import type { AbbyCase, AbbyRun, DirectoryPerson, DirectoryResponse, EncounterRecord } from './types'
 
 type RunsResponse = {
   persistence: string
@@ -26,55 +26,18 @@ function writeLocalRuns(runsByCase: Record<string, AbbyRun>) {
 }
 
 function defaultDirectory(): DirectoryResponse {
-  const people: DirectoryPerson[] = [
-    {
-      id: 'person-oliver-aalami',
-      name: 'Oliver Aalami',
-      phone: '+16503153236',
-      roles: ['superadmin'],
-      createdAt: seededAt,
-      updatedAt: seededAt,
-    },
-    {
-      id: 'person-maya-chen',
-      name: 'Maya Chen',
-      phone: '+14155550118',
-      roles: ['provider'],
-      specialty: 'Care Navigation',
-      createdAt: seededAt,
-      updatedAt: seededAt,
-    },
-    {
-      id: 'person-lena-morales',
-      name: 'Lena Morales',
-      phone: '+14155550124',
-      roles: ['patient'],
-      primaryProviderId: 'person-maya-chen',
-      createdAt: seededAt,
-      updatedAt: seededAt,
-    },
-    {
-      id: 'person-sam-patel',
-      name: 'Sam Patel',
-      phone: '+14155550142',
-      roles: ['patient', 'provider'],
-      specialty: 'Physical Therapy',
-      primaryProviderId: 'person-oliver-aalami',
-      createdAt: seededAt,
-      updatedAt: seededAt,
-    },
-  ]
-  return toLocalDirectoryResponse(people)
+  return toLocalDirectoryResponse([oliverSuperadmin()])
 }
 
-function readLocalDirectory(): DirectoryResponse {
+async function readLocalDirectory(): Promise<DirectoryResponse> {
+  const seeded = await seededDirectory()
   const stored = window.localStorage.getItem(localDirectoryStorageKey)
-  if (!stored) return defaultDirectory()
+  if (!stored) return seeded
   try {
-    return JSON.parse(stored) as DirectoryResponse
+    return normalizeSeededDirectory(JSON.parse(stored) as DirectoryResponse, seeded.people)
   } catch {
     window.localStorage.removeItem(localDirectoryStorageKey)
-    return defaultDirectory()
+    return seeded
   }
 }
 
@@ -191,17 +154,19 @@ export async function saveDirectoryPerson(person: Partial<DirectoryPerson>): Pro
       body: JSON.stringify({ person }),
     })
   } catch {
-    const current = readLocalDirectory()
+    const current = await readLocalDirectory()
     const phone = normalizePhone(person.phone)
     const now = new Date().toISOString()
+    const existing = current.people.find((item) => item.id === person.id || item.phone === phone)
     const nextPerson = {
-      id: person.id ?? `person-${Date.now()}`,
-      name: person.name ?? 'New person',
+      ...existing,
+      id: person.id ?? existing?.id ?? `person-${Date.now()}`,
+      name: person.name ?? existing?.name ?? 'New person',
       phone,
-      roles: person.roles ?? ['patient'],
-      specialty: person.specialty,
-      primaryProviderId: person.primaryProviderId,
-      createdAt: person.createdAt ?? now,
+      roles: person.roles ?? existing?.roles ?? ['patient'],
+      specialty: person.specialty ?? existing?.specialty,
+      primaryProviderId: person.primaryProviderId ?? existing?.primaryProviderId,
+      createdAt: person.createdAt ?? existing?.createdAt ?? now,
       updatedAt: now,
     } satisfies DirectoryPerson
     const people = current.people.filter((item) => item.id !== nextPerson.id && item.phone !== phone)
@@ -218,7 +183,7 @@ export async function sendDirectoryOtp(phone: string): Promise<DirectoryResponse
       body: JSON.stringify({ action: 'send-otp', phone }),
     })
   } catch {
-    const current = readLocalDirectory()
+    const current = await readLocalDirectory()
     return toLocalDirectoryResponse(current.people, { otp: { mode: 'mock', phone: normalizePhone(phone), demoCode: '123456' } })
   }
 }
@@ -230,7 +195,7 @@ export async function verifyDirectoryOtp(phone: string, code: string): Promise<D
       body: JSON.stringify({ action: 'verify-otp', phone, code }),
     })
   } catch {
-    const current = readLocalDirectory()
+    const current = await readLocalDirectory()
     const normalizedPhone = normalizePhone(phone)
     return toLocalDirectoryResponse(current.people, {
       session: {
@@ -238,5 +203,64 @@ export async function verifyDirectoryOtp(phone: string, code: string): Promise<D
         roles: code === '123456' ? (current.people.find((person) => person.phone === normalizedPhone)?.roles ?? []) : [],
       },
     })
+  }
+}
+
+async function seededDirectory(): Promise<DirectoryResponse> {
+  try {
+    const records = await loadRecords()
+    return toLocalDirectoryResponse([oliverSuperadmin(), ...records.map(syntheticPatient)])
+  } catch {
+    return defaultDirectory()
+  }
+}
+
+function normalizeSeededDirectory(current: DirectoryResponse, seededPeople: DirectoryPerson[]): DirectoryResponse {
+  const byId = new Map(current.people.map((person) => [person.id, person]))
+  const people = seededPeople.map((seed) => {
+    const existing = byId.get(seed.id)
+    return existing
+      ? {
+          ...seed,
+          phone: existing.phone || seed.phone,
+          createdAt: existing.createdAt || seed.createdAt,
+          updatedAt: existing.updatedAt || seed.updatedAt,
+        }
+      : seed
+  })
+  return toLocalDirectoryResponse(people, {
+    otp: current.otp,
+    session: current.session,
+  })
+}
+
+function oliverSuperadmin(): DirectoryPerson {
+  return {
+    id: 'person-oliver-aalami',
+    name: 'Oliver Aalami',
+    phone: '+16503153236',
+    roles: ['superadmin'],
+    createdAt: seededAt,
+    updatedAt: seededAt,
+  }
+}
+
+function syntheticPatient(record: EncounterRecord, index: number): DirectoryPerson {
+  const patient = record.patient_context.patient
+  const address = patient.address?.[0]
+  return {
+    id: `patient-${record.metadata.patient_id}`,
+    name: getPatientName(record),
+    phone: `+1555012${String(index + 1).padStart(4, '0')}`,
+    roles: ['patient'],
+    gender: patient.gender,
+    birthDate: patient.birthDate,
+    city: address?.city,
+    state: address?.state,
+    visitTitle: record.metadata.visit_title,
+    sourceRecordId: record.id,
+    synthetic: true,
+    createdAt: seededAt,
+    updatedAt: seededAt,
   }
 }

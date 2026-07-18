@@ -2,12 +2,10 @@ import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import {
   Activity,
   BadgeCheck,
-  Bot,
   CalendarCheck,
   ChevronRight,
   ClipboardList,
   Database,
-  FileJson,
   LayoutDashboard,
   MessageSquareText,
   Pencil,
@@ -16,10 +14,8 @@ import {
   Save,
   ShieldCheck,
   Stethoscope,
-  TestTube2,
   UserRound,
   X,
-  Workflow,
 } from 'lucide-react'
 import './App.css'
 import { buildCase, loadRecords } from './abbyEngine'
@@ -30,21 +26,15 @@ import {
   loadDirectory,
   loadRuns,
   saveDirectoryPerson,
-  sendDirectoryOtp,
-  verifyDirectoryOtp,
 } from './apiClient'
 import type { AbbyCase, AbbyRun, DirectoryPerson, DirectoryResponse, DirectoryRole, EncounterRecord } from './types'
 
 type View = 'plan' | 'admin' | 'patient' | 'provider' | 'fhir' | 'evals' | 'tools'
 
-const views: Array<{ id: View; label: string; icon: typeof Workflow }> = [
-  { id: 'plan', label: 'Plan', icon: Workflow },
-  { id: 'admin', label: 'Admin', icon: LayoutDashboard },
-  { id: 'patient', label: 'Patient', icon: MessageSquareText },
+const views: Array<{ id: View; label: string; icon: typeof LayoutDashboard }> = [
+  { id: 'admin', label: 'Superadmin', icon: LayoutDashboard },
+  { id: 'patient', label: 'Patient demo', icon: MessageSquareText },
   { id: 'provider', label: 'Brief', icon: Stethoscope },
-  { id: 'fhir', label: 'FHIR', icon: FileJson },
-  { id: 'evals', label: 'Evals', icon: TestTube2 },
-  { id: 'tools', label: 'Tools', icon: Bot },
 ]
 
 const workstreams = [
@@ -194,7 +184,16 @@ function App() {
         <Header abbyCase={abbyCase} run={activeRun} persistence={persistence} view={view} directory={directory} />
         {runError && <div className="runtime-error">{runError}</div>}
         {view === 'plan' && <PlanView />}
-        {view === 'admin' && directory && <AdminView directory={directory} onDirectoryChange={setDirectory} />}
+        {view === 'admin' && directory && (
+          <AdminView
+            directory={directory}
+            onDirectoryChange={setDirectory}
+            onOpenPatient={(recordId) => {
+              setSelectedId(recordId)
+              setView('patient')
+            }}
+          />
+        )}
         {view === 'patient' && <PatientView abbyCase={abbyCase} run={activeRun} onLaunch={() => launchRun(abbyCase)} isRunBusy={isRunBusy} />}
         {view === 'provider' && <ProviderView abbyCase={abbyCase} run={activeRun} onApprove={approveActiveRun} onExecute={executeActiveRun} isRunBusy={isRunBusy} />}
         {view === 'fhir' && <FhirView abbyCase={abbyCase} run={activeRun} />}
@@ -226,14 +225,12 @@ function Header({
           <div className="avatar"><ShieldCheck size={19} /></div>
           <div>
             <strong>Superadmin</strong>
-            <span>People directory, multi-role access, patients, providers, and phone login</span>
+            <span>Oliver Aalami and the Abridge synthetic patient roster</span>
           </div>
         </div>
         <div className="status-strip">
-          <span>{directory.counts.people} people</span>
-          <span>{directory.counts.providers} providers</span>
+          <span>{directory.counts.superadmins} superadmin</span>
           <span>{directory.counts.patients} patients</span>
-          <span>{directory.auth}</span>
           <span>{directory.persistence}</span>
         </div>
       </header>
@@ -346,35 +343,25 @@ function PatientView({ abbyCase, run, onLaunch, isRunBusy }: { abbyCase: AbbyCas
 function AdminView({
   directory,
   onDirectoryChange,
+  onOpenPatient,
 }: {
   directory: DirectoryResponse
   onDirectoryChange: (directory: DirectoryResponse) => void
+  onOpenPatient: (recordId: string) => void
 }) {
+  const [adminTab, setAdminTab] = useState<'superadmin' | 'patients'>('patients')
   const [form, setForm] = useState({
     id: '',
     name: '',
     phone: '',
     roles: ['patient'] as DirectoryRole[],
-    specialty: '',
-    primaryProviderId: '',
     createdAt: '',
   })
-  const [otpPhone, setOtpPhone] = useState(directory.people.find((person) => person.roles.includes('superadmin'))?.phone ?? directory.people[0]?.phone ?? '')
-  const [otpCode, setOtpCode] = useState('')
   const [adminMessage, setAdminMessage] = useState('')
   const [isSaving, setIsSaving] = useState(false)
-  const providers = directory.people.filter((person) => person.roles.includes('provider'))
   const patients = directory.people.filter((person) => person.roles.includes('patient'))
+  const superadmins = directory.people.filter((person) => person.roles.includes('superadmin'))
   const isEditing = Boolean(form.id)
-
-  const toggleRole = (role: DirectoryRole) => {
-    setForm((current) => {
-      const roles = current.roles.includes(role)
-        ? current.roles.filter((item) => item !== role)
-        : [...current.roles, role]
-      return { ...current, roles }
-    })
-  }
 
   const savePerson = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -385,12 +372,10 @@ function AdminView({
         name: form.name,
         phone: form.phone,
         roles: form.roles,
-        specialty: form.specialty || undefined,
-        primaryProviderId: form.primaryProviderId || undefined,
         createdAt: form.createdAt || undefined,
       })
       onDirectoryChange(nextDirectory)
-      setAdminMessage(`${form.name} ${isEditing ? 'updated' : 'saved'}`)
+      setAdminMessage(`${form.name} ${isEditing ? 'updated' : 'added'}`)
       resetForm()
     } catch (error) {
       setAdminMessage(error instanceof Error ? error.message : String(error))
@@ -400,7 +385,7 @@ function AdminView({
   }
 
   const resetForm = () => {
-    setForm({ id: '', name: '', phone: '', roles: ['patient'], specialty: '', primaryProviderId: '', createdAt: '' })
+    setForm({ id: '', name: '', phone: '', roles: ['patient'], createdAt: '' })
   }
 
   const editPerson = (person: DirectoryPerson) => {
@@ -409,147 +394,93 @@ function AdminView({
       name: person.name,
       phone: person.phone,
       roles: person.roles,
-      specialty: person.specialty ?? '',
-      primaryProviderId: person.primaryProviderId ?? '',
       createdAt: person.createdAt,
     })
+    setAdminTab('patients')
     setAdminMessage(`Editing ${person.name}`)
-  }
-
-  const sendOtp = async () => {
-    setIsSaving(true)
-    try {
-      const nextDirectory = await sendDirectoryOtp(otpPhone)
-      onDirectoryChange(nextDirectory)
-      setAdminMessage(nextDirectory.otp?.demoCode ? `Mock OTP: ${nextDirectory.otp.demoCode}` : 'OTP sent by Twilio')
-    } catch (error) {
-      setAdminMessage(error instanceof Error ? error.message : String(error))
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  const verifyOtp = async () => {
-    setIsSaving(true)
-    try {
-      const nextDirectory = await verifyDirectoryOtp(otpPhone, otpCode)
-      onDirectoryChange(nextDirectory)
-      setAdminMessage(`Verified ${otpPhone}`)
-    } catch (error) {
-      setAdminMessage(error instanceof Error ? error.message : String(error))
-    } finally {
-      setIsSaving(false)
-    }
   }
 
   return (
     <section className="content-grid admin-simple-grid">
-      <div className="panel admin-hero">
-        <p className="eyebrow">Superadmin</p>
-        <h1>User add-ons and patient roster.</h1>
-        <div className="metric-strip">
-          <Metric label="People" value={directory.counts.people} />
-          <Metric label="Providers" value={directory.counts.providers} />
-          <Metric label="Patients" value={directory.counts.patients} />
-          <Metric label="Superadmins" value={directory.counts.superadmins} />
-        </div>
-      </div>
-
-      <form className="panel person-form" onSubmit={savePerson}>
-        <div className="panel-title-row">
-          <div>
-            <p className="eyebrow">User add-ons</p>
-            <h2>{isEditing ? 'Edit directory profile' : 'Add a user or patient'}</h2>
-          </div>
-          {isEditing && (
-            <button className="icon-action" type="button" onClick={resetForm} title="Cancel edit" aria-label="Cancel edit">
-              <X size={18} />
-            </button>
-          )}
-        </div>
-        <label>
-          <span>Name</span>
-          <input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Jane Doe" required />
-        </label>
-        <label>
-          <span>Cell phone</span>
-          <input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="+1 650 555 0100" required />
-        </label>
-        <div className="role-toggle" aria-label="Roles">
-          {(['superadmin', 'provider', 'patient'] as DirectoryRole[]).map((role) => (
-            <button key={role} type="button" className={form.roles.includes(role) ? 'selected' : ''} onClick={() => toggleRole(role)}>
-              {role}
-            </button>
-          ))}
-        </div>
-        {form.roles.includes('provider') && (
-          <label>
-            <span>Specialty</span>
-            <input value={form.specialty} onChange={(event) => setForm({ ...form, specialty: event.target.value })} placeholder="Vascular Surgery" />
-          </label>
-        )}
-        {form.roles.includes('patient') && (
-          <label>
-            <span>Primary provider</span>
-            <select value={form.primaryProviderId} onChange={(event) => setForm({ ...form, primaryProviderId: event.target.value })}>
-              <option value="">Unassigned</option>
-              {providers.map((provider) => <option value={provider.id} key={provider.id}>{provider.name}</option>)}
-            </select>
-          </label>
-        )}
-        <button type="submit" disabled={isSaving || !form.roles.length}>
-          {isEditing ? <Save size={16} /> : <Plus size={16} />}
-          {isEditing ? 'Save changes' : 'Add person'}
+      <div className="admin-tabs" role="tablist" aria-label="Superadmin tabs">
+        <button type="button" className={adminTab === 'superadmin' ? 'active' : ''} onClick={() => setAdminTab('superadmin')}>
+          <ShieldCheck size={16} /> Superadmin
         </button>
-      </form>
-
-      <div className="panel otp-panel">
-        <p className="eyebrow">Phone auth</p>
-        <h2>{directory.auth === 'twilio-verify' ? 'Twilio OTP live' : 'Mock OTP until Twilio is connected'}</h2>
-        <label>
-          <span>Phone</span>
-          <input value={otpPhone} onChange={(event) => setOtpPhone(event.target.value)} />
-        </label>
-        <div className="otp-row">
-          <button type="button" onClick={sendOtp} disabled={isSaving || !otpPhone}><Phone size={16} /> Send OTP</button>
-          <input value={otpCode} onChange={(event) => setOtpCode(event.target.value)} placeholder="Code" inputMode="numeric" />
-          <button type="button" onClick={verifyOtp} disabled={isSaving || !otpCode}>Verify</button>
-        </div>
-        <p className="body-copy">Auth mode: {directory.auth}. Storage: {directory.persistence}.</p>
-        {adminMessage && <div className="admin-message">{adminMessage}</div>}
+        <button type="button" className={adminTab === 'patients' ? 'active' : ''} onClick={() => setAdminTab('patients')}>
+          <UserRound size={16} /> Patients
+        </button>
       </div>
 
-      <PatientRoster patients={patients} providers={providers} onEdit={editPerson} />
-      <PeopleList title="Providers" people={providers} onEdit={editPerson} />
-      <PeopleList title="All people" people={directory.people} onEdit={editPerson} />
-    </section>
-  )
-}
+      {adminTab === 'superadmin' && (
+        <div className="panel superadmin-card">
+          <p className="eyebrow">Superadmin</p>
+          <h1>Oliver Aalami</h1>
+          <div className="superadmin-line">
+            <span>Cell</span>
+            <strong>{superadmins[0]?.phone ?? '+16503153236'}</strong>
+          </div>
+          <div className="superadmin-line">
+            <span>Access</span>
+            <strong>superadmin</strong>
+          </div>
+          <div className="superadmin-line">
+            <span>Patients</span>
+            <strong>{patients.length} Abridge synthetic records</strong>
+          </div>
+        </div>
+      )}
 
-function Metric({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="metric">
-      <strong>{value}</strong>
-      <span>{label}</span>
-    </div>
+      {adminTab === 'patients' && (
+        <>
+          <form className="panel person-form compact-patient-form" onSubmit={savePerson}>
+            <div className="panel-title-row">
+              <div>
+                <p className="eyebrow">Patient</p>
+                <h2>{isEditing ? 'Edit patient cell' : 'Add patient'}</h2>
+              </div>
+              {isEditing && (
+                <button className="icon-action" type="button" onClick={resetForm} title="Cancel edit" aria-label="Cancel edit">
+                  <X size={18} />
+                </button>
+              )}
+            </div>
+            <label>
+              <span>Name</span>
+              <input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Jane Doe" required />
+            </label>
+            <label>
+              <span>Cell phone</span>
+              <input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="+1 650 555 0100" required />
+            </label>
+            <button type="submit" disabled={isSaving}>
+              {isEditing ? <Save size={16} /> : <Plus size={16} />}
+              {isEditing ? 'Save' : 'Add'}
+            </button>
+            {adminMessage && <div className="admin-message">{adminMessage}</div>}
+          </form>
+
+          <PatientRoster patients={patients} onEdit={editPerson} onOpenPatient={onOpenPatient} />
+        </>
+      )}
+    </section>
   )
 }
 
 function PatientRoster({
   patients,
-  providers,
   onEdit,
+  onOpenPatient,
 }: {
   patients: DirectoryPerson[]
-  providers: DirectoryPerson[]
   onEdit: (person: DirectoryPerson) => void
+  onOpenPatient: (recordId: string) => void
 }) {
   return (
     <div className="panel patient-roster">
       <div className="panel-title-row">
         <div>
           <p className="eyebrow">Patient list</p>
-          <h2>{patients.length} demo patients</h2>
+          <h2>{patients.length} Abridge synthetic patients</h2>
         </div>
         <UserRound size={20} />
       </div>
@@ -557,23 +488,27 @@ function PatientRoster({
         <div className="patient-table-head" role="row">
           <span>Name</span>
           <span>Cell phone</span>
-          <span>Primary provider</span>
-          <span>Roles</span>
+          <span>Age / sex</span>
+          <span>Visit</span>
           <span>Action</span>
         </div>
         {patients.map((patient) => {
-          const primaryProvider = providers.find((provider) => provider.id === patient.primaryProviderId)
           return (
             <div className="patient-table-row" role="row" key={patient.id}>
               <strong>{patient.name}</strong>
               <span className="phone-value">{patient.phone}</span>
-              <span>{primaryProvider?.name ?? 'Unassigned'}</span>
-              <div className="person-tags">
-                {patient.roles.map((role) => <span key={role}>{role}</span>)}
+              <span>{patient.birthDate ? `${ageFromBirthDate(patient.birthDate)} yrs` : 'Age unknown'}{patient.gender ? `, ${patient.gender}` : ''}</span>
+              <span>{patient.visitTitle ?? 'Synthetic encounter'}</span>
+              <div className="patient-actions">
+                {patient.sourceRecordId && (
+                  <button type="button" className="quiet-button" onClick={() => onOpenPatient(patient.sourceRecordId ?? '')}>
+                    Open
+                  </button>
+                )}
+                <button type="button" className="edit-button" onClick={() => onEdit(patient)}>
+                  <Pencil size={15} /> Edit
+                </button>
               </div>
-              <button type="button" className="edit-button" onClick={() => onEdit(patient)}>
-                <Pencil size={15} /> Edit
-              </button>
             </div>
           )
         })}
@@ -582,39 +517,13 @@ function PatientRoster({
   )
 }
 
-function PeopleList({ title, people, providers = [], onEdit }: { title: string; people: DirectoryPerson[]; providers?: DirectoryPerson[]; onEdit: (person: DirectoryPerson) => void }) {
-  return (
-    <div className="panel people-panel">
-      <div className="panel-title-row">
-        <div>
-          <p className="eyebrow">{title}</p>
-          <h2>{people.length} total</h2>
-        </div>
-        <UserRound size={20} />
-      </div>
-      <div className="people-list">
-        {people.map((person) => {
-          const primaryProvider = providers.find((provider) => provider.id === person.primaryProviderId)
-          return (
-            <div className="person-row" key={person.id}>
-              <div>
-                <strong>{person.name}</strong>
-                <span>{person.phone}</span>
-              </div>
-              <div className="person-tags">
-                {person.roles.map((role) => <span key={role}>{role}</span>)}
-                {person.specialty && <span>{person.specialty}</span>}
-                {primaryProvider && <span>{primaryProvider.name}</span>}
-              </div>
-              <button type="button" className="icon-action" onClick={() => onEdit(person)} title={`Edit ${person.name}`} aria-label={`Edit ${person.name}`}>
-                <Pencil size={16} />
-              </button>
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
+function ageFromBirthDate(birthDate: string): number {
+  const birth = new Date(birthDate)
+  const now = new Date('2026-07-18')
+  let age = now.getFullYear() - birth.getFullYear()
+  const monthDelta = now.getMonth() - birth.getMonth()
+  if (monthDelta < 0 || (monthDelta === 0 && now.getDate() < birth.getDate())) age -= 1
+  return age
 }
 
 function ProviderView({
