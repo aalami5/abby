@@ -32,6 +32,7 @@ export default async function handler(request: ApiRequest, response: ApiResponse
         practiceName: 'Abby Care',
         visitTitle: 'Private care conversation',
         phoneHint: patientPhoneHint(careId),
+        phoneLocked: true,
         verificationMode: hasTwilio() ? 'sms' : 'demo',
       })
       return
@@ -42,8 +43,10 @@ export default async function handler(request: ApiRequest, response: ApiResponse
     if (careId === 'demo-cardiovascular' && hasTwilio() && !process.env.ABBY_DEMO_PATIENT_PHONE) {
       throw new PatientApiError(503, 'demo_phone_not_configured')
     }
-    const phone = normalizePhone(body.phone)
-    if (!phone || phone !== expectedPatientPhone(careId)) throw new PatientApiError(403, 'phone_does_not_match_care_link')
+    const expectedPhone = expectedPatientPhone(careId)
+    const suppliedPhone = normalizePhone(body.phone)
+    const phone = suppliedPhone || expectedPhone
+    if (phone !== expectedPhone) throw new PatientApiError(403, 'phone_does_not_match_care_link')
 
     if (action === 'send-otp') {
       const code = String(randomInt(100000, 1000000))

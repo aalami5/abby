@@ -29,14 +29,15 @@ async function call(
 
 test('the patient can verify a synthetic care link and load minimum context', async () => {
   const careId = 'demo-cardiovascular'
-  const phone = '+15550120011'
   const bootstrap = await call(sessionHandler, { method: 'GET', query: { careId } })
   assert.equal(bootstrap.statusCode, 200)
   assert.equal((bootstrap.body as { visitTitle: string }).visitTitle, 'Private care conversation')
+  assert.equal((bootstrap.body as { phoneLocked: boolean }).phoneLocked, true)
+  assert.equal(JSON.stringify(bootstrap.body).includes('+15550120011'), false)
 
   const challenge = await call(sessionHandler, {
     method: 'POST',
-    body: { action: 'send-otp', careId, phone },
+    body: { action: 'send-otp', careId },
   })
   assert.equal(challenge.statusCode, 200)
   const demoCode = (challenge.body as { demoCode: string }).demoCode
@@ -44,7 +45,7 @@ test('the patient can verify a synthetic care link and load minimum context', as
 
   const verified = await call(sessionHandler, {
     method: 'POST',
-    body: { action: 'verify-otp', careId, phone, code: demoCode },
+    body: { action: 'verify-otp', careId, code: demoCode },
   })
   assert.equal(verified.statusCode, 200)
   const token = (verified.body as { token: string }).token

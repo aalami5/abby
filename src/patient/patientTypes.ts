@@ -30,6 +30,7 @@ export type PatientBootstrap = {
   practiceName: string
   visitTitle: string
   phoneHint: string
+  phoneLocked: boolean
   verificationMode: 'sms' | 'demo'
 }
 

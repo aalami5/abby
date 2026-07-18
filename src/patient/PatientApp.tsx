@@ -19,10 +19,7 @@ export function PatientApp({ careId }: { careId: string }) {
 
   useEffect(() => {
     loadPatientBootstrap(careId)
-      .then((result) => {
-        setBootstrap(result)
-        if (result.verificationMode === 'demo' && careId === 'demo-cardiovascular') setPhone('+1 555 012 0011')
-      })
+      .then(setBootstrap)
       .catch((caught: unknown) => setError(messageOf(caught)))
   }, [careId])
 
@@ -237,7 +234,9 @@ function PatientVerification(props: VerificationProps) {
         {props.error && <div className="patient-entry-error" role="alert">{props.error}</div>}
         {!props.otpSent ? (
           <form onSubmit={props.onSend}>
-            <label><span>Mobile phone</span><input type="tel" autoComplete="tel" value={props.phone} onChange={(event) => props.setPhone(event.target.value)} placeholder="(555) 555-0123" required /></label>
+            <label><span>Mobile phone</span>{props.bootstrap.phoneLocked
+              ? <input type="text" value={props.bootstrap.phoneHint} readOnly aria-readonly="true" />
+              : <input type="tel" autoComplete="tel" value={props.phone} onChange={(event) => props.setPhone(event.target.value)} placeholder="(555) 555-0123" required />}</label>
             <button type="submit" disabled={props.busy}>{props.busy ? 'Sending securely…' : 'Text me a code'}</button>
           </form>
         ) : (
@@ -245,7 +244,7 @@ function PatientVerification(props: VerificationProps) {
             <label><span>Six-digit code</span><input className="patient-code-input" type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={props.code} onChange={(event) => props.setCode(event.target.value.replace(/\D/g, ''))} placeholder="000000" required /></label>
             {props.demoCode && <button className="demo-code-button" type="button" onClick={() => props.setCode(props.demoCode)}><Check size={15} /> Use demo code {props.demoCode}</button>}
             <button type="submit" disabled={props.busy || props.code.length !== 6}>{props.busy ? 'Verifying…' : 'Open my care conversation'}</button>
-            <button className="patient-text-button" type="button" onClick={props.onBack}>Use a different phone</button>
+            <button className="patient-text-button" type="button" onClick={props.onBack}>{props.bootstrap.phoneLocked ? 'Send a new code' : 'Use a different phone'}</button>
           </form>
         )}
         <small className="patient-privacy-copy"><ShieldCheck size={14} /> Your care link does not contain medical details.</small>
