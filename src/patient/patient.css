@@ -13,7 +13,7 @@
 .patient-entry-page, .patient-app-shell, .patient-voice-room { min-height: 100dvh; color: var(--abby-ink); font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 .patient-entry-page { display: grid; place-items: center; padding: 24px; background: radial-gradient(circle at 50% -10%, #fff 0, var(--abby-cream) 46%, #eee5dc 100%); }
 .patient-entry-card { width: min(100%, 440px); padding: 32px 28px; border: 1px solid rgba(112, 83, 64, .14); border-radius: 30px; background: rgba(255, 255, 255, .92); box-shadow: 0 28px 80px rgba(66, 43, 30, .12); text-align: center; }
-.patient-entry-logo { width: 72px; height: 72px; margin-bottom: 18px; border-radius: 50%; box-shadow: 0 12px 30px rgba(230, 56, 50, .15); }
+.patient-entry-logo { width: 156px; max-width: 54%; height: auto; margin-bottom: 22px; object-fit: contain; }
 .patient-entry-kicker { display: inline-flex; align-items: center; gap: 6px; color: #655d56; font-size: 13px; font-weight: 750; }
 .patient-entry-card h1 { margin: 14px 0 10px; font-size: clamp(30px, 8vw, 40px); line-height: 1; letter-spacing: -.045em; }
 .patient-entry-card > p { margin: 0 auto 20px; max-width: 340px; color: var(--abby-muted); font-size: 16px; line-height: 1.55; }
@@ -38,11 +38,9 @@
 
 .patient-app-shell { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; max-width: 760px; margin: 0 auto; background: #fff; box-shadow: 0 0 80px rgba(60, 42, 30, .08); }
 .patient-app-header { min-height: 70px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 20px; border-bottom: 1px solid var(--abby-line); background: rgba(255, 255, 255, .92); backdrop-filter: blur(18px); }
-.patient-brand { display: flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; }
-.patient-brand img { width: 44px; height: 44px; border-radius: 50%; }
-.patient-brand div { display: grid; }
-.patient-brand strong { color: var(--abby-red); font-size: 22px; line-height: 1; letter-spacing: -.05em; }
-.patient-brand span { margin-top: 3px; color: var(--abby-muted); font-size: 11px; }
+.patient-brand { display: grid; align-items: center; color: inherit; text-decoration: none; }
+.patient-brand img { width: 92px; height: auto; object-fit: contain; }
+.patient-brand span { margin-top: 2px; color: var(--abby-muted); font-size: 11px; }
 .patient-secure-state { display: flex; align-items: center; gap: 5px; color: #6f6963; font-size: 12px; font-weight: 700; }
 .patient-plan-strip { display: grid; gap: 4px; padding: 12px 20px; border-bottom: 1px solid #eee7e0; background: #fbf7f3; }
 .patient-plan-strip > div { display: flex; align-items: center; gap: 7px; font-size: 13px; }

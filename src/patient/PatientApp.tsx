@@ -149,8 +149,8 @@ function PatientConversation({ token, plan }: { token: string; plan: PatientPlan
     <div className="patient-app-shell">
       <header className="patient-app-header">
         <a className="patient-brand" href="#top" aria-label="Abby home">
-          <img src="/brand/abby-mark-circle.png" alt="" />
-          <div><strong>abby</strong><span>{plan.workflow === 'post_visit_followthrough' ? 'Your follow-through' : 'Before your visit'}</span></div>
+          <img src="/brand/abby-wordmark.png" alt="Abby" />
+          <span>{plan.workflow === 'post_visit_followthrough' ? 'Your follow-through' : 'Before your visit'}</span>
         </a>
         <div className="patient-secure-state"><ShieldCheck size={16} /><span>Private</span></div>
       </header>
@@ -226,7 +226,7 @@ function PatientVerification(props: VerificationProps) {
   return (
     <main className="patient-entry-page">
       <section className="patient-entry-card">
-        <img className="patient-entry-logo" src="/brand/abby-mark-circle.png" alt="Abby" />
+        <img className="patient-entry-logo" src="/brand/abby-wordmark.png" alt="Abby" />
         <span className="patient-entry-kicker"><LockKeyhole size={15} /> Private care link</span>
         <h1>{props.otpSent ? 'Enter your code' : 'Welcome to Abby'}</h1>
         <p>{props.otpSent ? `We sent a six-digit code to the phone ending ${props.bootstrap.phoneHint}.` : `${props.bootstrap.providerName} has shared a private care conversation with you.`}</p>
