@@ -206,7 +206,11 @@ export async function saveDirectoryPerson(person: Partial<DirectoryPerson>): Pro
     const current = await readLocalDirectory()
     const phone = normalizePhone(person.phone)
     const now = new Date().toISOString()
-    const existing = current.people.find((item) => item.id === person.id || item.phone === phone)
+    const existing = current.people.find((item) => (
+      (person.id && item.id === person.id) ||
+      (person.sourceRecordId && item.sourceRecordId === person.sourceRecordId) ||
+      item.phone === phone
+    ))
     const nextPerson = {
       ...existing,
       id: person.id ?? existing?.id ?? `person-${Date.now()}`,
@@ -291,8 +295,12 @@ async function seededDirectory(): Promise<DirectoryResponse> {
 function normalizeSeededDirectory(current: DirectoryResponse, seededPeople: DirectoryPerson[]): DirectoryResponse {
   const seedIds = new Set(seededPeople.map((person) => person.id))
   const byId = new Map(current.people.map((person) => [person.id, person]))
+  const bySourceRecordId = new Map(current.people.filter((person) => person.sourceRecordId).map((person) => [person.sourceRecordId, person]))
   const people = seededPeople.map((seed) => {
-    const existing = byId.get(seed.id)
+    const sameNamePatient = current.people
+      .filter((person) => !person.sourceRecordId && person.roles.includes('patient') && normalizeName(person.name) === normalizeName(seed.name))
+      .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))[0]
+    const existing = sameNamePatient ?? byId.get(seed.id) ?? (seed.sourceRecordId ? bySourceRecordId.get(seed.sourceRecordId) : undefined)
     return existing
       ? {
           ...seed,
@@ -307,20 +315,28 @@ function normalizeSeededDirectory(current: DirectoryResponse, seededPeople: Dire
           abbyInstructionsSourceUrl: existing.abbyInstructionsSourceUrl ?? seed.abbyInstructionsSourceUrl,
           abbyInstructionsAudience: existing.abbyInstructionsAudience ?? seed.abbyInstructionsAudience,
           primaryProviderId: existing.primaryProviderId ?? seed.primaryProviderId,
-          gender: existing.gender,
-          birthDate: existing.birthDate,
-          city: existing.city,
-          state: existing.state,
-          visitTitle: existing.visitTitle,
-          sourceRecordId: existing.sourceRecordId,
-          synthetic: existing.synthetic,
+          gender: existing.gender ?? seed.gender,
+          birthDate: existing.birthDate ?? seed.birthDate,
+          city: existing.city ?? seed.city,
+          state: existing.state ?? seed.state,
+          visitTitle: existing.visitTitle ?? seed.visitTitle,
+          sourceRecordId: existing.sourceRecordId ?? seed.sourceRecordId,
+          synthetic: existing.sourceRecordId ? existing.synthetic : seed.synthetic,
           createdAt: existing.createdAt || seed.createdAt,
           updatedAt: existing.updatedAt || seed.updatedAt,
         }
       : seed
   })
   for (const person of current.people) {
-    if (!seedIds.has(person.id) && !people.some((item) => item.id === person.id || item.phone === person.phone)) {
+    if (
+      !seedIds.has(person.id) &&
+      !people.some((item) => (
+        item.id === person.id ||
+        item.phone === person.phone ||
+        Boolean(person.sourceRecordId && item.sourceRecordId === person.sourceRecordId) ||
+        (!person.sourceRecordId && person.roles.includes('patient') && normalizeName(person.name) === normalizeName(item.name))
+      ))
+    ) {
       people.push(person)
     }
   }
@@ -328,6 +344,10 @@ function normalizeSeededDirectory(current: DirectoryResponse, seededPeople: Dire
     otp: current.otp,
     session: current.session,
   })
+}
+
+function normalizeName(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
 function oliverAdmin(): DirectoryPerson {

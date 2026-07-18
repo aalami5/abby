@@ -125,11 +125,11 @@ export default async function handler(request: VercelRequest, response: VercelRe
       }
 
       const person = normalizePerson(body.person, current.people)
-      const existingIndex = current.people.findIndex((item) => item.id === person.id || item.phone === person.phone)
+      const existingIndex = current.people.findIndex((item) => isSameDirectoryPerson(item, person))
       if (existingIndex >= 0) current.people[existingIndex] = { ...current.people[existingIndex], ...person, updatedAt: new Date().toISOString() }
       else current.people.unshift(person)
       await writeStore(current)
-      response.status(200).json(toResponse(current))
+      response.status(200).json(toResponse(store))
       return
     }
 
@@ -187,7 +187,11 @@ function normalizePerson(value: unknown, people: DirectoryPerson[]): DirectoryPe
   if (!name) throw new Error('name is required')
   if (!phone) throw new Error('phone is required')
   if (!roles.length) throw new Error('at least one role is required')
-  const existing = people.find((person) => person.id === input.id || person.phone === phone)
+  const existing = people.find((person) => (
+    (input.id && person.id === input.id) ||
+    (input.sourceRecordId && person.sourceRecordId === input.sourceRecordId) ||
+    person.phone === phone
+  ))
   const now = new Date().toISOString()
   return {
     id: input.id || existing?.id || `person-${slugify(name)}-${Math.random().toString(16).slice(2, 8)}`,
@@ -212,6 +216,14 @@ function normalizePerson(value: unknown, people: DirectoryPerson[]): DirectoryPe
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   }
+}
+
+function isSameDirectoryPerson(left: DirectoryPerson, right: DirectoryPerson): boolean {
+  return (
+    left.id === right.id ||
+    Boolean(left.sourceRecordId && left.sourceRecordId === right.sourceRecordId) ||
+    left.phone === right.phone
+  )
 }
 
 function normalizeRoles(value: unknown): Role[] {
@@ -257,8 +269,12 @@ function normalizeSeededStore(current: DirectoryStore): DirectoryStore {
   const seeds = seedPeople()
   const seedIds = new Set(seeds.map((person) => person.id))
   const byId = new Map(current.people.map((person) => [person.id, person]))
+  const bySourceRecordId = new Map(current.people.filter((person) => person.sourceRecordId).map((person) => [person.sourceRecordId, person]))
   const people = seeds.map((seed) => {
-    const existing = byId.get(seed.id)
+    const sameNamePatient = current.people
+      .filter((person) => !person.sourceRecordId && person.roles.includes('patient') && normalizeName(person.name) === normalizeName(seed.name))
+      .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))[0]
+    const existing = sameNamePatient ?? byId.get(seed.id) ?? (seed.sourceRecordId ? bySourceRecordId.get(seed.sourceRecordId) : undefined)
     return existing
       ? {
           ...seed,
@@ -273,13 +289,13 @@ function normalizeSeededStore(current: DirectoryStore): DirectoryStore {
           abbyInstructionsSourceUrl: existing.abbyInstructionsSourceUrl ?? seed.abbyInstructionsSourceUrl,
           abbyInstructionsAudience: existing.abbyInstructionsAudience ?? seed.abbyInstructionsAudience,
           primaryProviderId: existing.primaryProviderId ?? seed.primaryProviderId,
-          gender: existing.gender,
-          birthDate: existing.birthDate,
-          city: existing.city,
-          state: existing.state,
-          visitTitle: existing.visitTitle,
-          sourceRecordId: existing.sourceRecordId,
-          synthetic: existing.synthetic,
+          gender: existing.gender ?? seed.gender,
+          birthDate: existing.birthDate ?? seed.birthDate,
+          city: existing.city ?? seed.city,
+          state: existing.state ?? seed.state,
+          visitTitle: existing.visitTitle ?? seed.visitTitle,
+          sourceRecordId: existing.sourceRecordId ?? seed.sourceRecordId,
+          synthetic: existing.sourceRecordId ? existing.synthetic : seed.synthetic,
           createdAt: existing.createdAt || seed.createdAt,
           updatedAt: existing.updatedAt || seed.updatedAt,
         }
@@ -287,7 +303,14 @@ function normalizeSeededStore(current: DirectoryStore): DirectoryStore {
   })
   const removedStarterIds = new Set(['person-maya-chen', 'person-lena-morales', 'person-sam-patel'])
   const additionalUsers = current.people.filter((person) => (
-    !seedIds.has(person.id) && !removedStarterIds.has(person.id)
+    !seedIds.has(person.id) &&
+    !removedStarterIds.has(person.id) &&
+    !people.some((seededPerson) => (
+      person.id === seededPerson.id ||
+      person.phone === seededPerson.phone ||
+      Boolean(person.sourceRecordId && person.sourceRecordId === seededPerson.sourceRecordId) ||
+      (!person.sourceRecordId && person.roles.includes('patient') && normalizeName(person.name) === normalizeName(seededPerson.name))
+    ))
   ))
   for (const user of additionalUsers) {
     if (!people.some((person) => person.id === user.id || person.phone === user.phone)) people.push(user)
@@ -299,6 +322,10 @@ function normalizeSeededStore(current: DirectoryStore): DirectoryStore {
       : seedAgentInstructionReferences(),
     otp: current.otp ?? {},
   }
+}
+
+function normalizeName(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
 function seedAgentInstructionReferences(): AgentInstructionReference[] {

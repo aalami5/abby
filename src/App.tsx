@@ -647,6 +647,12 @@ function AdminView({
   }
 
   const editPerson = (person: DirectoryPerson) => {
+    if (person.roles.includes('patient')) {
+      selectPatient(person)
+      onAdminSectionChange('patients')
+      setAdminMessage('')
+      return
+    }
     setForm({
       id: person.id,
       name: person.name,
