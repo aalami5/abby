@@ -16,6 +16,16 @@ The app uses the synthetic Abridge ambient/FHIR dataset to demonstrate:
 - server-side run lifecycle endpoints with browser fallback
 - FHIR Bundle JSON export
 
+## App Instructions
+
+The provider-facing Abby instructions for the demo live in:
+
+```text
+ABBY_INSTRUCTIONS.md
+```
+
+That file is intentionally kept at the repository root so it is easy to identify in GitHub.
+
 ## Run
 
 ```bash

@@ -259,7 +259,10 @@ function oliverAdmin(): DirectoryPerson {
     roles: ['admin', 'provider', 'patient'],
     specialty: 'Vascular Surgery',
     abbyInstructions: [
-      '# Abby Instructions for Oliver Aalami',
+      '# Abby App Instructions',
+      '',
+      'Provider: Dr. Oliver Aalami',
+      'Specialty: Vascular Surgery',
       '',
       'Use a vascular-surgery lens for patient outreach and provider briefs.',
       'Prioritize cardiovascular risk, limb symptoms, wound status, medication adherence, and urgent red flags.',
