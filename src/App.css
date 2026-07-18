@@ -20,17 +20,31 @@
   --soft-shadow: 0 8px 18px rgba(31, 41, 51, 0.08);
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 0;
+  overflow-x: hidden;
+}
+
 .app-shell {
   min-height: 100svh;
   width: 100%;
+  max-width: 100vw;
   display: grid;
   grid-template-columns: 272px minmax(0, 1fr);
   background: var(--wash);
   color: var(--ink);
+  overflow-x: hidden;
 }
 
 .sidebar {
   min-height: 100svh;
+  min-width: 0;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
   background: #17212b;
   padding: 18px 12px;
@@ -288,7 +302,7 @@ select {
   top: calc(100% + 8px);
   left: 0;
   z-index: 20;
-  width: 334px;
+  width: min(334px, calc(100vw - 48px));
   display: grid;
   gap: 4px;
   border: 1px solid var(--line);
@@ -337,6 +351,7 @@ select {
 .topbar-account {
   gap: 10px;
   color: var(--muted);
+  min-width: 0;
 }
 
 .topbar-account > div {
@@ -445,6 +460,7 @@ select {
   padding: 24px;
   display: grid;
   gap: 18px;
+  min-width: 0;
 }
 
 .chat-layout {
@@ -1850,23 +1866,24 @@ textarea {
 
 @media (max-width: 680px) {
   .app-shell {
-    background: linear-gradient(180deg, #fff8f4, #ffffff 42%, #fff5ef);
+    background: #f7f9fb;
   }
 
   .content-grid,
   .chat-layout,
   .sidebar,
   .topbar {
-    padding: 12px;
+    padding: 10px;
   }
 
   .sidebar {
     position: sticky;
     top: 0;
     z-index: 8;
-    gap: 10px;
-    background: rgba(255, 252, 249, 0.96);
+    gap: 8px;
+    background: #17212b;
     backdrop-filter: blur(18px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   }
 
   .selector-label,
@@ -1880,11 +1897,13 @@ textarea {
 
   .brand {
     gap: 10px;
+    min-height: 46px;
+    padding: 0 0 8px;
   }
 
   .brand-mark {
-    width: 106px;
-    height: 54px;
+    width: 112px;
+    height: 44px;
   }
 
   .brand strong {
@@ -1897,9 +1916,12 @@ textarea {
 
   .nav {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 6px;
-    padding: 5px;
+    grid-template-columns: repeat(5, minmax(44px, 1fr));
+    gap: 4px;
+    padding: 4px;
+    border-color: rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: none;
   }
 
   .nav button span {
@@ -1910,11 +1932,11 @@ textarea {
     min-height: 44px;
     padding: 0;
     justify-content: center;
-    color: var(--muted);
+    color: rgba(255, 255, 255, 0.68);
   }
 
   .nav button:disabled {
-    color: var(--muted);
+    color: rgba(255, 255, 255, 0.34);
   }
 
   h1 {
@@ -1932,7 +1954,41 @@ textarea {
 
   .topbar {
     gap: 10px;
-    background: rgba(255, 255, 255, 0.72);
+    background: #ffffff;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .topbar-left,
+  .topbar-account {
+    width: 100%;
+  }
+
+  .role-menu-shell,
+  .role-select {
+    width: 100%;
+  }
+
+  .role-dropdown {
+    width: 100%;
+  }
+
+  .topbar-account {
+    min-height: 44px;
+    justify-content: space-between;
+    border-top: 1px solid var(--line);
+    padding-top: 10px;
+  }
+
+  .topbar-account > div {
+    min-width: 0;
+    text-align: left;
+  }
+
+  .topbar-account strong {
+    display: block;
+    max-width: 42vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .patient-chip {
@@ -1973,6 +2029,11 @@ textarea {
 
   .content-grid {
     gap: 12px;
+  }
+
+  .case-bar {
+    grid-template-columns: 1fr;
+    padding: 10px 10px 0;
   }
 
   .chat-layout {
@@ -2021,7 +2082,7 @@ textarea {
 
   .panel {
     padding: 14px;
-    box-shadow: 0 10px 24px rgba(181, 28, 8, 0.08);
+    box-shadow: 0 8px 18px rgba(31, 41, 51, 0.06);
   }
 
   .admin-hero,
@@ -2113,6 +2174,10 @@ textarea {
     gap: 10px;
   }
 
+  .patient-detail-workspace .patient-detail-panel {
+    order: -1;
+  }
+
   .provider-patient-row {
     grid-template-columns: 1fr;
     align-items: start;
@@ -2199,6 +2264,7 @@ textarea {
   .patient-actions {
     display: grid;
     grid-template-columns: 1fr 1fr;
+    gap: 8px;
   }
 
   .person-row > div:first-child span,
@@ -2224,6 +2290,48 @@ textarea {
   .fhir-panel pre {
     max-height: 62svh;
     padding: 12px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 390px) {
+  .content-grid,
+  .chat-layout,
+  .sidebar,
+  .topbar {
+    padding: 8px;
+  }
+
+  .brand-mark {
+    width: 98px;
+    height: 40px;
+  }
+
+  .nav {
+    grid-template-columns: repeat(5, minmax(40px, 1fr));
+    gap: 3px;
+  }
+
+  .nav button {
+    min-height: 40px;
+  }
+
+  .topbar-account button span {
+    display: none;
+  }
+
+  .topbar-account strong {
+    max-width: 52vw;
+  }
+
+  .patient-actions,
+  .approval-row {
+    grid-template-columns: 1fr;
+  }
+
+  .role-badge,
+  .patient-detail-meta span,
+  .status-strip span {
     font-size: 11px;
   }
 }
