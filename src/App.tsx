@@ -3,11 +3,14 @@ import {
   Activity,
   CalendarCheck,
   ClipboardList,
+  Database,
   LayoutDashboard,
+  LogOut,
   MessageSquareText,
   Pencil,
   Plus,
   Save,
+  Settings,
   ShieldCheck,
   Stethoscope,
   UsersRound,
@@ -28,11 +31,20 @@ import {
 import type { AbbyCase, AbbyRun, DirectoryPerson, DirectoryResponse, DirectoryRole, EncounterRecord } from './types'
 
 type View = 'admin' | 'patient' | 'provider'
+type AdminSection = 'dashboard' | 'users' | 'patients'
 
-const views: Array<{ id: View; label: string; icon: typeof LayoutDashboard }> = [
-  { id: 'admin', label: 'Superadmin', icon: LayoutDashboard },
-  { id: 'patient', label: 'Chat', icon: MessageSquareText },
-  { id: 'provider', label: 'Brief', icon: Stethoscope },
+const menuItems: Array<
+  | { id: 'dashboard' | 'users' | 'patients' | 'chat' | 'brief'; label: string; icon: typeof LayoutDashboard }
+  | { id: 'programs' | 'analytics' | 'settings'; label: string; icon: typeof LayoutDashboard; disabled: true }
+> = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'users', label: 'Users', icon: UsersRound },
+  { id: 'patients', label: 'Patients', icon: UserRound },
+  { id: 'chat', label: 'Patient chat', icon: MessageSquareText },
+  { id: 'brief', label: 'Provider brief', icon: Stethoscope },
+  { id: 'programs', label: 'Programs', icon: ClipboardList, disabled: true },
+  { id: 'analytics', label: 'Analytics', icon: Activity, disabled: true },
+  { id: 'settings', label: 'Settings', icon: Settings, disabled: true },
 ]
 
 const directoryRoleOptions: Array<{ value: DirectoryRole; label: string }> = [
@@ -45,6 +57,8 @@ function App() {
   const [records, setRecords] = useState<EncounterRecord[]>([])
   const [selectedId, setSelectedId] = useState('')
   const [view, setView] = useState<View>('admin')
+  const [adminSection, setAdminSection] = useState<AdminSection>('dashboard')
+  const [selectedRole, setSelectedRole] = useState<DirectoryRole>('superadmin')
   const [loadingError, setLoadingError] = useState('')
   const [runsByCase, setRunsByCase] = useState<Record<string, AbbyRun>>({})
   const [persistence, setPersistence] = useState('loading')
@@ -123,57 +137,91 @@ function App() {
   }
 
   return (
-    <main className={`app-shell ${view === 'admin' ? 'admin-shell' : ''}`}>
+    <main className="app-shell">
       <aside className="sidebar">
-        <div className={`brand ${view === 'admin' ? 'brand-only' : ''}`}>
+        <div className="brand">
           <div className="brand-mark" aria-label="Abby logo">
             <img src="/abby-logo.jpg" alt="" />
           </div>
-          <div className="brand-copy">
-            <strong>Abby</strong>
-            <span>care follow-up</span>
-          </div>
         </div>
 
+        <nav className="nav" aria-label="Abby admin navigation">
+          {menuItems.map((item) => {
+            const Icon = item.icon
+            const active = (
+              (item.id === 'dashboard' && view === 'admin' && adminSection === 'dashboard') ||
+              (item.id === 'users' && view === 'admin' && adminSection === 'users') ||
+              (item.id === 'patients' && view === 'admin' && adminSection === 'patients') ||
+              (item.id === 'chat' && view === 'patient') ||
+              (item.id === 'brief' && view === 'provider')
+            )
+            const selectItem = () => {
+              if ('disabled' in item) return
+              if (item.id === 'dashboard' || item.id === 'users' || item.id === 'patients') {
+                setAdminSection(item.id)
+                setView('admin')
+                return
+              }
+              if (item.id === 'chat') {
+                setView('patient')
+                return
+              }
+              if (item.id === 'brief') {
+                setView('provider')
+                return
+              }
+              setAdminSection('dashboard')
+              setView('admin')
+            }
+
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className={active ? 'active' : ''}
+                onClick={selectItem}
+                disabled={'disabled' in item}
+                title={item.label}
+              >
+                <Icon size={19} />
+                <span>{item.label}</span>
+              </button>
+            )
+          })}
+        </nav>
+
+        <div className="sidebar-footer">
+          <Database size={18} />
+          <span>{persistence === 'browser-fallback' ? 'Local fallback' : 'Cloud demo'}</span>
+        </div>
+      </aside>
+
+      <section className="workspace">
+        <Header
+          abbyCase={abbyCase}
+          run={activeRun}
+          persistence={persistence}
+          view={view}
+          directory={directory}
+          selectedRole={selectedRole}
+          onSelectedRoleChange={setSelectedRole}
+        />
         {view !== 'admin' && (
-          <>
-            <label className="selector-label" htmlFor="case-select">Synthetic case</label>
+          <div className="case-bar">
+            <label htmlFor="case-select">Synthetic case</label>
             <select id="case-select" value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>
               {records.map((record) => (
                 <option key={record.id} value={record.id}>{record.metadata.visit_title}</option>
               ))}
             </select>
-          </>
-        )}
-
-        {view !== 'admin' && (
-          <nav className="nav" aria-label="Abby surfaces">
-            {views.map((item) => {
-              const Icon = item.icon
-              return (
-                <button key={item.id} type="button" className={view === item.id ? 'active' : ''} onClick={() => setView(item.id)} title={item.label}>
-                  <Icon size={18} />
-                  <span>{item.label}</span>
-                </button>
-              )
-            })}
-          </nav>
-        )}
-
-        {view !== 'admin' && (
-          <div className="sidebar-footer">
-            <Activity size={18} />
-            <span>{persistence === 'browser-fallback' ? 'Local fallback, synthetic data only' : 'Cloud demo, synthetic data only'}</span>
           </div>
         )}
-      </aside>
-
-      <section className="workspace">
-        <Header abbyCase={abbyCase} run={activeRun} persistence={persistence} view={view} directory={directory} />
         {runError && <div className="runtime-error">{runError}</div>}
         {view === 'admin' && directory && (
           <AdminView
             directory={directory}
+            adminSection={adminSection}
+            onAdminSectionChange={setAdminSection}
             onDirectoryChange={setDirectory}
             onOpenPatient={(recordId) => {
               setSelectedId(recordId)
@@ -194,64 +242,76 @@ function Header({
   persistence,
   view,
   directory,
+  selectedRole,
+  onSelectedRoleChange,
 }: {
   abbyCase: AbbyCase
   run?: AbbyRun
   persistence: string
   view: View
   directory: DirectoryResponse | null
+  selectedRole: DirectoryRole
+  onSelectedRoleChange: (role: DirectoryRole) => void
 }) {
   const { record } = abbyCase
-  if (view === 'admin' && directory) {
-    return (
-      <header className="topbar">
-        <div className="patient-chip" aria-label="Superadmin workspace">
-          <div className="avatar"><ShieldCheck size={19} /></div>
-          <div>
-            <strong>Superadmin</strong>
-            <span>Oliver Aalami and the Abridge synthetic patient roster</span>
-          </div>
+  const roleText = roleLabel(selectedRole)
+  return (
+    <header className="topbar">
+      <div className="topbar-left">
+        <label className="role-select" htmlFor="role-select">
+          <ShieldCheck size={17} />
+          <select id="role-select" value={selectedRole} onChange={(event) => onSelectedRoleChange(event.target.value as DirectoryRole)}>
+            {directoryRoleOptions.map((role) => (
+              <option key={role.value} value={role.value}>{role.label}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <div className="topbar-account" aria-label="Current user">
+        <UserRound size={19} />
+        <div>
+          <span>{roleText}</span>
+          <strong>Oliver Aalami</strong>
         </div>
-        <div className="status-strip">
+        <button type="button" title="Logout" aria-label="Logout">
+          <LogOut size={18} />
+          <span>Logout</span>
+        </button>
+      </div>
+
+      {view !== 'admin' && (
+        <div className="status-strip desktop-status">
+          <span>{Object.values(record.metadata.related_resource_counts).reduce((sum, count) => sum + count, 0)} FHIR inputs</span>
+          <span>{abbyCase.signals.length} signals</span>
+          <span>{run ? `run ${run.stage}` : 'no active run'}</span>
+          <span>{persistence}</span>
+        </div>
+      )}
+      {view === 'admin' && directory && (
+        <div className="status-strip desktop-status">
           <span>{directory.counts.superadmins} superadmin</span>
           <span>{directory.counts.providers} providers</span>
           <span>{directory.counts.patients} patients</span>
-          <span>{directory.persistence}</span>
         </div>
-      </header>
-    )
-  }
-
-  return (
-    <header className="topbar">
-      <div className="patient-chip" aria-label="Selected patient">
-        <div className="avatar">{abbyCase.initials}</div>
-        <div>
-          <strong>{abbyCase.patientName}</strong>
-          <span>{abbyCase.age} yrs, {record.patient_context.patient.gender ?? 'unknown'} · {record.metadata.visit_title}</span>
-        </div>
-      </div>
-      <div className="status-strip">
-        <span>{Object.values(record.metadata.related_resource_counts).reduce((sum, count) => sum + count, 0)} FHIR inputs</span>
-        <span>{abbyCase.signals.length} signals</span>
-        <span>{run ? `run ${run.stage}` : 'no active run'}</span>
-        <span>{persistence}</span>
-        <span>{abbyCase.evalScores.filter((item) => item.score >= item.target).length}/{abbyCase.evalScores.length} evals passing</span>
-      </div>
+      )}
     </header>
   )
 }
 
 function AdminView({
   directory,
+  adminSection,
+  onAdminSectionChange,
   onDirectoryChange,
   onOpenPatient,
 }: {
   directory: DirectoryResponse
+  adminSection: AdminSection
+  onAdminSectionChange: (section: AdminSection) => void
   onDirectoryChange: (directory: DirectoryResponse) => void
   onOpenPatient: (recordId: string) => void
 }) {
-  const [adminTab, setAdminTab] = useState<'users' | 'patients'>('users')
   const [form, setForm] = useState({
     id: '',
     name: '',
@@ -298,30 +358,45 @@ function AdminView({
       roles: person.roles,
       createdAt: person.createdAt,
     })
-    setAdminTab(person.roles.includes('patient') ? 'patients' : 'users')
+    onAdminSectionChange(person.roles.includes('patient') ? 'patients' : 'users')
     setAdminMessage(`Editing ${person.name}`)
   }
 
   return (
     <section className="content-grid admin-clean-grid">
-      <div className="admin-section-menu" role="tablist" aria-label="Superadmin directory sections">
-        <div className="admin-menu-kicker">
-          <ShieldCheck size={17} />
-          <span>Directory</span>
+      {adminSection === 'dashboard' && (
+        <div className="admin-dashboard-placeholder">
+          <div className="panel dashboard-intro">
+            <p className="eyebrow">Dashboard</p>
+            <h1>Welcome back.</h1>
+            <p>Platform overview for Abby.</p>
+          </div>
+          <div className="admin-metrics">
+            <div className="panel admin-metric-card">
+              <UsersRound size={22} />
+              <span>Total users</span>
+              <strong>{users.length}</strong>
+            </div>
+            <div className="panel admin-metric-card">
+              <ShieldCheck size={22} />
+              <span>Superadmins</span>
+              <strong>{directory.counts.superadmins}</strong>
+            </div>
+            <div className="panel admin-metric-card">
+              <Stethoscope size={22} />
+              <span>Providers</span>
+              <strong>{directory.counts.providers}</strong>
+            </div>
+            <div className="panel admin-metric-card">
+              <UserRound size={22} />
+              <span>Patients</span>
+              <strong>{directory.counts.patients}</strong>
+            </div>
+          </div>
         </div>
-        <button type="button" className={adminTab === 'users' ? 'active' : ''} onClick={() => setAdminTab('users')}>
-          <UsersRound size={17} />
-          <span>Users</span>
-          <strong>{users.length}</strong>
-        </button>
-        <button type="button" className={adminTab === 'patients' ? 'active' : ''} onClick={() => setAdminTab('patients')}>
-          <UserRound size={17} />
-          <span>Patients</span>
-          <strong>{patients.length}</strong>
-        </button>
-      </div>
+      )}
 
-      {adminTab === 'users' && (
+      {adminSection === 'users' && (
         <div className="admin-directory-workspace">
           <form className="panel person-form compact-patient-form" onSubmit={savePerson}>
             <div className="panel-title-row">
@@ -369,7 +444,7 @@ function AdminView({
         </div>
       )}
 
-      {adminTab === 'patients' && (
+      {adminSection === 'patients' && (
         <div className="admin-directory-workspace patients-only-workspace">
           <UserRoster
             users={patients}
