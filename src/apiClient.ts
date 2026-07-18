@@ -224,18 +224,28 @@ async function seededDirectory(): Promise<DirectoryResponse> {
 }
 
 function normalizeSeededDirectory(current: DirectoryResponse, seededPeople: DirectoryPerson[]): DirectoryResponse {
+  const seedIds = new Set(seededPeople.map((person) => person.id))
   const byId = new Map(current.people.map((person) => [person.id, person]))
   const people = seededPeople.map((seed) => {
     const existing = byId.get(seed.id)
     return existing
       ? {
           ...seed,
+          name: existing.name || seed.name,
           phone: existing.phone || seed.phone,
+          roles: existing.roles.length ? existing.roles : seed.roles,
+          specialty: existing.specialty,
+          primaryProviderId: existing.primaryProviderId,
           createdAt: existing.createdAt || seed.createdAt,
           updatedAt: existing.updatedAt || seed.updatedAt,
         }
       : seed
   })
+  for (const person of current.people) {
+    if (!seedIds.has(person.id) && !people.some((item) => item.id === person.id || item.phone === person.phone)) {
+      people.push(person)
+    }
+  }
   return toLocalDirectoryResponse(people, {
     otp: current.otp,
     session: current.session,

@@ -202,18 +202,22 @@ function normalizeSeededStore(current: DirectoryStore): DirectoryStore {
     return existing
       ? {
           ...seed,
+          name: existing.name || seed.name,
           phone: existing.phone || seed.phone,
+          roles: existing.roles.length ? existing.roles : seed.roles,
+          specialty: existing.specialty,
+          primaryProviderId: existing.primaryProviderId,
           createdAt: existing.createdAt || seed.createdAt,
           updatedAt: existing.updatedAt || seed.updatedAt,
         }
       : seed
   })
   const removedStarterIds = new Set(['person-maya-chen', 'person-lena-morales', 'person-sam-patel'])
-  const additionalPatients = current.people.filter((person) => (
-    person.roles.includes('patient') && !seedIds.has(person.id) && !removedStarterIds.has(person.id)
+  const additionalUsers = current.people.filter((person) => (
+    !seedIds.has(person.id) && !removedStarterIds.has(person.id)
   ))
-  for (const patient of additionalPatients) {
-    if (!people.some((person) => person.id === patient.id)) people.push(patient)
+  for (const user of additionalUsers) {
+    if (!people.some((person) => person.id === user.id || person.phone === user.phone)) people.push(user)
   }
   return { people, otp: current.otp ?? {} }
 }

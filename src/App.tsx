@@ -34,6 +34,12 @@ const views: Array<{ id: View; label: string; icon: typeof LayoutDashboard }> = 
   { id: 'provider', label: 'Brief', icon: Stethoscope },
 ]
 
+const directoryRoleOptions: Array<{ value: DirectoryRole; label: string }> = [
+  { value: 'patient', label: 'Patient' },
+  { value: 'provider', label: 'Provider' },
+  { value: 'superadmin', label: 'Superadmin' },
+]
+
 function App() {
   const [records, setRecords] = useState<EncounterRecord[]>([])
   const [selectedId, setSelectedId] = useState('')
@@ -207,6 +213,7 @@ function Header({
         </div>
         <div className="status-strip">
           <span>{directory.counts.superadmins} superadmin</span>
+          <span>{directory.counts.providers} providers</span>
           <span>{directory.counts.patients} patients</span>
           <span>{directory.persistence}</span>
         </div>
@@ -243,7 +250,7 @@ function AdminView({
   onDirectoryChange: (directory: DirectoryResponse) => void
   onOpenPatient: (recordId: string) => void
 }) {
-  const [adminTab, setAdminTab] = useState<'superadmin' | 'patients'>('patients')
+  const [adminTab, setAdminTab] = useState<'superadmin' | 'users'>('users')
   const [form, setForm] = useState({
     id: '',
     name: '',
@@ -253,6 +260,7 @@ function AdminView({
   })
   const [adminMessage, setAdminMessage] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const users = directory.people
   const patients = directory.people.filter((person) => person.roles.includes('patient'))
   const superadmins = directory.people.filter((person) => person.roles.includes('superadmin'))
   const isEditing = Boolean(form.id)
@@ -290,7 +298,7 @@ function AdminView({
       roles: person.roles,
       createdAt: person.createdAt,
     })
-    setAdminTab('patients')
+    setAdminTab('users')
     setAdminMessage(`Editing ${person.name}`)
   }
 
@@ -300,8 +308,8 @@ function AdminView({
         <button type="button" className={adminTab === 'superadmin' ? 'active' : ''} onClick={() => setAdminTab('superadmin')}>
           <ShieldCheck size={16} /> Superadmin
         </button>
-        <button type="button" className={adminTab === 'patients' ? 'active' : ''} onClick={() => setAdminTab('patients')}>
-          <UserRound size={16} /> Patients
+        <button type="button" className={adminTab === 'users' ? 'active' : ''} onClick={() => setAdminTab('users')}>
+          <UserRound size={16} /> Users
         </button>
       </div>
 
@@ -321,16 +329,20 @@ function AdminView({
             <span>Patients</span>
             <strong>{patients.length} Abridge synthetic records</strong>
           </div>
+          <div className="superadmin-line">
+            <span>Providers</span>
+            <strong>{directory.counts.providers} directory users</strong>
+          </div>
         </div>
       )}
 
-      {adminTab === 'patients' && (
+      {adminTab === 'users' && (
         <>
           <form className="panel person-form compact-patient-form" onSubmit={savePerson}>
             <div className="panel-title-row">
               <div>
-                <p className="eyebrow">Patients</p>
-                <h2>{isEditing ? 'Edit patient cell' : 'Add patient'}</h2>
+                <p className="eyebrow">Users</p>
+                <h2>{isEditing ? 'Edit user' : 'Add user'}</h2>
               </div>
               {isEditing && (
                 <button className="icon-action" type="button" onClick={resetForm} title="Cancel edit" aria-label="Cancel edit">
@@ -346,6 +358,14 @@ function AdminView({
               <span>Cell phone</span>
               <input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="+1 650 555 0100" required />
             </label>
+            <label>
+              <span>Role</span>
+              <select value={form.roles[0] ?? 'patient'} onChange={(event) => setForm({ ...form, roles: [event.target.value as DirectoryRole] })} required>
+                {directoryRoleOptions.map((role) => (
+                  <option key={role.value} value={role.value}>{role.label}</option>
+                ))}
+              </select>
+            </label>
             <button type="submit" disabled={isSaving}>
               {isEditing ? <Save size={16} /> : <Plus size={16} />}
               {isEditing ? 'Save' : 'Add'}
@@ -353,19 +373,19 @@ function AdminView({
             {adminMessage && <div className="admin-message">{adminMessage}</div>}
           </form>
 
-          <PatientRoster patients={patients} onEdit={editPerson} onOpenPatient={onOpenPatient} />
+          <UserRoster users={users} onEdit={editPerson} onOpenPatient={onOpenPatient} />
         </>
       )}
     </section>
   )
 }
 
-function PatientRoster({
-  patients,
+function UserRoster({
+  users,
   onEdit,
   onOpenPatient,
 }: {
-  patients: DirectoryPerson[]
+  users: DirectoryPerson[]
   onEdit: (person: DirectoryPerson) => void
   onOpenPatient: (recordId: string) => void
 }) {
@@ -373,36 +393,42 @@ function PatientRoster({
     <div className="panel patient-roster">
       <div className="panel-title-row">
         <div>
-          <p className="eyebrow">Patients</p>
-          <h2>{patients.length} named Abridge synthetic patients</h2>
+          <p className="eyebrow">Users</p>
+          <h2>{users.length} directory users</h2>
         </div>
         <UserRound size={20} />
       </div>
-      <div className="patient-table" role="table" aria-label="Patients">
+      <div className="patient-table" role="table" aria-label="Users">
         <div className="patient-table-head" role="row">
           <span>Name</span>
+          <span>Role</span>
           <span>Cell phone</span>
-          <span>Age / sex</span>
-          <span>Visit</span>
+          <span>Context</span>
           <span>Action</span>
         </div>
-        {patients.map((patient) => {
+        {users.map((user) => {
           return (
-            <div className="patient-table-row" role="row" key={patient.id}>
+            <div className="patient-table-row" role="row" key={user.id}>
               <div className="patient-name-cell">
-                <strong>{patient.name}</strong>
-                <span>{patient.sourceRecordId ? 'Abridge synthetic record' : 'Added patient'}</span>
+                <strong>{user.name}</strong>
+                <span>{user.sourceRecordId ? 'Abridge synthetic record' : 'Directory user'}</span>
               </div>
-              <span className="phone-value" data-label="Cell">{patient.phone}</span>
-              <span data-label="Age / sex">{patient.birthDate ? `${ageFromBirthDate(patient.birthDate)} yrs` : 'Age unknown'}{patient.gender ? `, ${patient.gender}` : ''}</span>
-              <span data-label="Visit">{patient.visitTitle ?? 'Synthetic encounter'}</span>
+              <div className="role-badges" data-label="Role">
+                {user.roles.map((role) => <span className="role-badge" key={role}>{roleLabel(role)}</span>)}
+              </div>
+              <span className="phone-value" data-label="Cell">{user.phone}</span>
+              <span data-label="Context">
+                {user.sourceRecordId
+                  ? `${user.birthDate ? `${ageFromBirthDate(user.birthDate)} yrs` : 'Age unknown'}${user.gender ? `, ${user.gender}` : ''} · ${user.visitTitle ?? 'Synthetic encounter'}`
+                  : user.specialty ?? 'Manual directory entry'}
+              </span>
               <div className="patient-actions">
-                {patient.sourceRecordId && (
-                  <button type="button" className="quiet-button" onClick={() => onOpenPatient(patient.sourceRecordId ?? '')}>
+                {user.sourceRecordId && (
+                  <button type="button" className="quiet-button" onClick={() => onOpenPatient(user.sourceRecordId ?? '')}>
                     Open
                   </button>
                 )}
-                <button type="button" className="edit-button" onClick={() => onEdit(patient)}>
+                <button type="button" className="edit-button" onClick={() => onEdit(user)}>
                   <Pencil size={15} /> Edit
                 </button>
               </div>
@@ -412,6 +438,10 @@ function PatientRoster({
       </div>
     </div>
   )
+}
+
+function roleLabel(role: DirectoryRole): string {
+  return directoryRoleOptions.find((option) => option.value === role)?.label ?? role
 }
 
 function ageFromBirthDate(birthDate: string): number {
