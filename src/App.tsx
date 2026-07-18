@@ -1131,6 +1131,7 @@ function ProviderView({
     : []
   const [providerForm, setProviderForm] = useState(() => personToProviderForm(selectedProvider))
   const [providerMessage, setProviderMessage] = useState('')
+  const [checkInNotice, setCheckInNotice] = useState('')
   const [preVisitStatusByPatient, setPreVisitStatusByPatient] = useState<Record<string, string>>({})
   const [busyCheckIns, setBusyCheckIns] = useState<Record<string, boolean>>({})
   const [isProviderSaving, setIsProviderSaving] = useState(false)
@@ -1140,6 +1141,12 @@ function ProviderView({
     setSelectedProviderId(selectedProvider.id)
     setProviderForm(personToProviderForm(selectedProvider))
   }, [selectedProvider])
+
+  useEffect(() => {
+    if (!checkInNotice) return
+    const timeout = window.setTimeout(() => setCheckInNotice(''), 2200)
+    return () => window.clearTimeout(timeout)
+  }, [checkInNotice])
 
   const saveProvider = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -1173,6 +1180,7 @@ function ProviderView({
         ? `Twilio SMS ${result.status}`
         : 'Demo message ready; configure Twilio to send'
       setPreVisitStatusByPatient((current) => ({ ...current, [patient.id]: status }))
+      setCheckInNotice('Check-in sent')
     } catch (error) {
       setPreVisitStatusByPatient((current) => ({
         ...current,
@@ -1196,6 +1204,7 @@ function ProviderView({
 
   return (
     <section className="content-grid provider-workspace">
+      {checkInNotice && <SaveNotice message={checkInNotice} />}
       <form className="panel provider-profile-panel" onSubmit={saveProvider}>
         <div className="panel-title-row patient-detail-title">
           <div>
