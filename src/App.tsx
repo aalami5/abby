@@ -377,13 +377,38 @@ function AdminView({
     createdAt: '',
   })
   const [userFilter, setUserFilter] = useState<DirectoryUserFilter>('patients')
+  const [selectedPatientId, setSelectedPatientId] = useState('')
+  const [patientForm, setPatientForm] = useState({
+    id: '',
+    name: '',
+    phone: '',
+    gender: '',
+    birthDate: '',
+    city: '',
+    state: '',
+    visitTitle: '',
+    primaryProviderId: '',
+    sourceRecordId: '',
+    synthetic: false,
+    createdAt: '',
+  })
   const [adminMessage, setAdminMessage] = useState('')
+  const [patientMessage, setPatientMessage] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const [isPatientSaving, setIsPatientSaving] = useState(false)
   const users = directory.people
   const patients = directory.people.filter((person) => person.roles.includes('patient'))
+  const providers = directory.people.filter((person) => person.roles.includes('provider'))
   const activeFilter = directoryFilterOptions.find((option) => option.value === userFilter) ?? directoryFilterOptions[0]
   const filteredUsers = directory.people.filter((person) => hasDirectoryRole(person, activeFilter.role))
+  const selectedPatient = patients.find((patient) => patient.id === selectedPatientId) ?? patients[0]
   const isEditing = Boolean(form.id)
+
+  useEffect(() => {
+    if (!selectedPatient) return
+    setSelectedPatientId(selectedPatient.id)
+    setPatientForm(personToPatientForm(selectedPatient))
+  }, [selectedPatient])
 
   const savePerson = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -422,6 +447,41 @@ function AdminView({
     setUserFilter(nextFilter)
     onAdminSectionChange(adminSection === 'patients' && person.roles.includes('patient') ? 'patients' : 'users')
     setAdminMessage(`Editing ${person.name}`)
+  }
+
+  const selectPatient = (patient: DirectoryPerson) => {
+    setSelectedPatientId(patient.id)
+    setPatientForm(personToPatientForm(patient))
+    setPatientMessage('')
+  }
+
+  const saveSelectedPatient = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setIsPatientSaving(true)
+    try {
+      const nextDirectory = await saveDirectoryPerson({
+        id: patientForm.id,
+        name: patientForm.name,
+        phone: patientForm.phone,
+        roles: ['patient'],
+        gender: patientForm.gender,
+        birthDate: patientForm.birthDate,
+        city: patientForm.city,
+        state: patientForm.state,
+        visitTitle: patientForm.visitTitle,
+        primaryProviderId: patientForm.primaryProviderId,
+        sourceRecordId: patientForm.sourceRecordId,
+        synthetic: patientForm.synthetic,
+        createdAt: patientForm.createdAt || undefined,
+      })
+      onDirectoryChange(nextDirectory)
+      setSelectedPatientId(patientForm.id)
+      setPatientMessage(`${patientForm.name} updated`)
+    } catch (error) {
+      setPatientMessage(error instanceof Error ? error.message : String(error))
+    } finally {
+      setIsPatientSaving(false)
+    }
   }
 
   return (
@@ -518,7 +578,7 @@ function AdminView({
       )}
 
       {adminSection === 'patients' && (
-        <div className="admin-directory-workspace patients-only-workspace">
+        <div className="patient-detail-workspace">
           <UserRoster
             users={patients}
             eyebrow="Patients"
@@ -526,12 +586,43 @@ function AdminView({
             ariaLabel="Patients"
             onEdit={editPerson}
             onOpenPatient={onOpenPatient}
+            selectedUserId={selectedPatient?.id}
+            onSelect={selectPatient}
+          />
+          <PatientDetailPanel
+            patient={selectedPatient}
+            providers={providers}
+            form={patientForm}
+            message={patientMessage}
+            isSaving={isPatientSaving}
+            onFormChange={setPatientForm}
+            onSubmit={saveSelectedPatient}
+            onOpenPatient={onOpenPatient}
           />
         </div>
       )}
     </section>
   )
 }
+
+function personToPatientForm(person: DirectoryPerson) {
+  return {
+    id: person.id,
+    name: person.name,
+    phone: person.phone,
+    gender: person.gender ?? '',
+    birthDate: person.birthDate ?? '',
+    city: person.city ?? '',
+    state: person.state ?? '',
+    visitTitle: person.visitTitle ?? '',
+    primaryProviderId: person.primaryProviderId ?? '',
+    sourceRecordId: person.sourceRecordId ?? '',
+    synthetic: Boolean(person.synthetic),
+    createdAt: person.createdAt,
+  }
+}
+
+type PatientFormState = ReturnType<typeof personToPatientForm>
 
 function UserRoster({
   users,
@@ -544,6 +635,8 @@ function UserRoster({
   onFilterChange,
   onEdit,
   onOpenPatient,
+  selectedUserId,
+  onSelect,
 }: {
   users: DirectoryPerson[]
   eyebrow: string
@@ -555,6 +648,8 @@ function UserRoster({
   onFilterChange?: (filter: DirectoryUserFilter) => void
   onEdit: (person: DirectoryPerson) => void
   onOpenPatient: (recordId: string) => void
+  selectedUserId?: string
+  onSelect?: (person: DirectoryPerson) => void
 }) {
   return (
     <div className="panel patient-roster">
@@ -598,10 +693,22 @@ function UserRoster({
         {users.map((user) => {
           return (
             <div className="patient-table-row" role="row" key={user.id}>
-              <div className="patient-name-cell">
-                <strong>{user.name}</strong>
-                <span>{user.sourceRecordId ? 'Abridge synthetic record' : 'Directory user'}</span>
-              </div>
+              {onSelect ? (
+                <button
+                  type="button"
+                  className={`patient-name-cell patient-select-button ${selectedUserId === user.id ? 'selected' : ''}`}
+                  onClick={() => onSelect(user)}
+                  aria-label={`Select ${user.name}`}
+                >
+                  <strong>{user.name}</strong>
+                  <span>{user.sourceRecordId ? 'Abridge synthetic record' : 'Directory user'}</span>
+                </button>
+              ) : (
+                <div className="patient-name-cell">
+                  <strong>{user.name}</strong>
+                  <span>{user.sourceRecordId ? 'Abridge synthetic record' : 'Directory user'}</span>
+                </div>
+              )}
               <div className="role-badges" data-label="Role">
                 {user.roles.map((role) => <span className="role-badge" key={role}>{roleLabel(role)}</span>)}
               </div>
@@ -632,6 +739,110 @@ function UserRoster({
         )}
       </div>
     </div>
+  )
+}
+
+function PatientDetailPanel({
+  patient,
+  providers,
+  form,
+  message,
+  isSaving,
+  onFormChange,
+  onSubmit,
+  onOpenPatient,
+}: {
+  patient?: DirectoryPerson
+  providers: DirectoryPerson[]
+  form: PatientFormState
+  message: string
+  isSaving: boolean
+  onFormChange: (form: PatientFormState) => void
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void
+  onOpenPatient: (recordId: string) => void
+}) {
+  if (!patient) {
+    return (
+      <div className="panel patient-detail-panel empty-patient-detail">
+        <p className="eyebrow">Patient profile</p>
+        <h2>No patient selected</h2>
+      </div>
+    )
+  }
+
+  return (
+    <form className="panel patient-detail-panel" onSubmit={onSubmit}>
+      <div className="panel-title-row patient-detail-title">
+        <div>
+          <p className="eyebrow">Patient profile</p>
+          <h2>{patient.name}</h2>
+        </div>
+        {form.sourceRecordId && (
+          <button type="button" className="quiet-button" onClick={() => onOpenPatient(form.sourceRecordId)}>
+            <MessageSquareText size={16} /> Open chat
+          </button>
+        )}
+      </div>
+
+      <div className="patient-detail-meta">
+        <span>{form.birthDate ? `${ageFromBirthDate(form.birthDate)} yrs` : 'Age unknown'}</span>
+        <span>{form.gender || 'Gender unset'}</span>
+        <span>{[form.city, form.state].filter(Boolean).join(', ') || 'Location unset'}</span>
+      </div>
+
+      <div className="patient-form-grid">
+        <label>
+          <span>Name</span>
+          <input value={form.name} onChange={(event) => onFormChange({ ...form, name: event.target.value })} required />
+        </label>
+        <label>
+          <span>Cell phone</span>
+          <input value={form.phone} onChange={(event) => onFormChange({ ...form, phone: event.target.value })} required />
+        </label>
+        <label>
+          <span>Date of birth</span>
+          <input type="date" value={form.birthDate} onChange={(event) => onFormChange({ ...form, birthDate: event.target.value })} />
+        </label>
+        <label>
+          <span>Gender</span>
+          <select value={form.gender} onChange={(event) => onFormChange({ ...form, gender: event.target.value })}>
+            <option value="">Unset</option>
+            <option value="female">Female</option>
+            <option value="male">Male</option>
+            <option value="other">Other</option>
+            <option value="unknown">Unknown</option>
+          </select>
+        </label>
+        <label>
+          <span>City</span>
+          <input value={form.city} onChange={(event) => onFormChange({ ...form, city: event.target.value })} />
+        </label>
+        <label>
+          <span>State</span>
+          <input value={form.state} onChange={(event) => onFormChange({ ...form, state: event.target.value.toUpperCase().slice(0, 2) })} maxLength={2} />
+        </label>
+        <label className="wide-field">
+          <span>Visit context</span>
+          <input value={form.visitTitle} onChange={(event) => onFormChange({ ...form, visitTitle: event.target.value })} />
+        </label>
+        <label className="wide-field">
+          <span>Primary provider</span>
+          <select value={form.primaryProviderId} onChange={(event) => onFormChange({ ...form, primaryProviderId: event.target.value })}>
+            <option value="">Unassigned</option>
+            {providers.map((provider) => (
+              <option key={provider.id} value={provider.id}>{provider.name}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <div className="patient-detail-actions">
+        <button type="submit" disabled={isSaving}>
+          <Save size={16} /> Save patient
+        </button>
+        {message && <div className="admin-message">{message}</div>}
+      </div>
+    </form>
   )
 }
 

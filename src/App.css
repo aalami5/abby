@@ -1289,6 +1289,14 @@ meter {
   grid-template-columns: minmax(0, 1fr);
 }
 
+.patient-detail-workspace {
+  display: grid;
+  grid-template-columns: minmax(420px, 1fr) 360px;
+  align-items: start;
+  gap: 18px;
+  min-width: 0;
+}
+
 .compact-patient-form {
   position: sticky;
   top: 102px;
@@ -1523,6 +1531,23 @@ input {
   gap: 3px;
 }
 
+.patient-select-button {
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  padding: 8px;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.patient-select-button:hover,
+.patient-select-button.selected {
+  border-color: rgba(239, 37, 7, 0.28);
+  background: #fff8f6;
+}
+
 .patient-name-cell strong {
   display: block;
   color: var(--ink);
@@ -1590,6 +1615,80 @@ input {
   color: var(--ink);
   font: inherit;
   font-weight: 900;
+  cursor: pointer;
+}
+
+.patient-detail-panel {
+  position: sticky;
+  top: 102px;
+  min-width: 0;
+}
+
+.empty-patient-detail {
+  min-height: 180px;
+}
+
+.patient-detail-title .quiet-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.patient-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.patient-detail-meta span {
+  min-height: 28px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 9px;
+  background: var(--cream);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.patient-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.patient-form-grid label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.patient-form-grid .wide-field {
+  grid-column: 1 / -1;
+}
+
+.patient-detail-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.patient-detail-actions button {
+  min-height: 42px;
+  border: 1px solid var(--abridge);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: linear-gradient(135deg, var(--abridge-dark), var(--abridge));
+  color: #ffffff;
+  font: inherit;
+  font-weight: 900;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   cursor: pointer;
 }
 
@@ -1717,6 +1816,7 @@ input {
   .tool-grid,
   .admin-clean-grid,
   .admin-directory-workspace,
+  .patient-detail-workspace,
   .chat-layout {
     grid-template-columns: 1fr;
   }
@@ -1727,6 +1827,7 @@ input {
 
   .admin-section-menu,
   .compact-patient-form,
+  .patient-detail-panel,
   .patient-roster,
   .chat-context-panel {
     grid-column: auto;
@@ -2011,8 +2112,13 @@ input {
   .person-form,
   .otp-panel,
   .people-panel,
+  .patient-detail-panel,
   .patient-roster {
     gap: 10px;
+  }
+
+  .patient-form-grid {
+    grid-template-columns: 1fr;
   }
 
   .directory-filter-bar {
