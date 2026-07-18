@@ -110,6 +110,7 @@ export type DirectoryPerson = {
   phone: string
   roles: DirectoryRole[]
   specialty?: string
+  abbyInstructions?: string
   primaryProviderId?: string
   gender?: string
   birthDate?: string

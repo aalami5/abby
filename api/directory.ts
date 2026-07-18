@@ -9,6 +9,7 @@ type DirectoryPerson = {
   phone: string
   roles: Role[]
   specialty?: string
+  abbyInstructions?: string
   primaryProviderId?: string
   gender?: string
   birthDate?: string
@@ -154,14 +155,15 @@ function normalizePerson(value: unknown, people: DirectoryPerson[]): DirectoryPe
     name,
     phone,
     roles,
-    specialty: typeof input.specialty === 'string' ? input.specialty.trim() : undefined,
-    primaryProviderId: typeof input.primaryProviderId === 'string' ? input.primaryProviderId : undefined,
-    gender: typeof input.gender === 'string' ? input.gender.trim() : undefined,
-    birthDate: typeof input.birthDate === 'string' ? input.birthDate.trim() : undefined,
-    city: typeof input.city === 'string' ? input.city.trim() : undefined,
-    state: typeof input.state === 'string' ? input.state.trim() : undefined,
-    visitTitle: typeof input.visitTitle === 'string' ? input.visitTitle.trim() : undefined,
-    sourceRecordId: typeof input.sourceRecordId === 'string' ? input.sourceRecordId : undefined,
+    specialty: typeof input.specialty === 'string' ? input.specialty.trim() : existing?.specialty,
+    abbyInstructions: typeof input.abbyInstructions === 'string' ? input.abbyInstructions : existing?.abbyInstructions,
+    primaryProviderId: typeof input.primaryProviderId === 'string' ? input.primaryProviderId : existing?.primaryProviderId,
+    gender: typeof input.gender === 'string' ? input.gender.trim() : existing?.gender,
+    birthDate: typeof input.birthDate === 'string' ? input.birthDate.trim() : existing?.birthDate,
+    city: typeof input.city === 'string' ? input.city.trim() : existing?.city,
+    state: typeof input.state === 'string' ? input.state.trim() : existing?.state,
+    visitTitle: typeof input.visitTitle === 'string' ? input.visitTitle.trim() : existing?.visitTitle,
+    sourceRecordId: typeof input.sourceRecordId === 'string' ? input.sourceRecordId : existing?.sourceRecordId,
     synthetic: Boolean(input.synthetic ?? existing?.synthetic),
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
@@ -215,7 +217,8 @@ function normalizeSeededStore(current: DirectoryStore): DirectoryStore {
           phone: existing.phone || seed.phone,
           roles: existing.roles.length ? normalizeRoles(existing.roles) : seed.roles,
           specialty: existing.specialty,
-          primaryProviderId: existing.primaryProviderId,
+          abbyInstructions: existing.abbyInstructions ?? seed.abbyInstructions,
+          primaryProviderId: existing.primaryProviderId ?? seed.primaryProviderId,
           gender: existing.gender,
           birthDate: existing.birthDate,
           city: existing.city,
@@ -247,7 +250,15 @@ function oliverAdmin(): DirectoryPerson {
     id: 'person-oliver-aalami',
     name: 'Oliver Aalami',
     phone: '+16503153236',
-    roles: ['admin'],
+    roles: ['admin', 'provider', 'patient'],
+    specialty: 'Vascular Surgery',
+    abbyInstructions: [
+      '# Abby Instructions for Oliver Aalami',
+      '',
+      'Use a vascular-surgery lens for patient outreach and provider briefs.',
+      'Prioritize cardiovascular risk, limb symptoms, wound status, medication adherence, and urgent red flags.',
+      'Keep patient-facing language concise, calm, and action-oriented.',
+    ].join('\n'),
     createdAt: seededAt,
     updatedAt: seededAt,
   }
@@ -262,6 +273,7 @@ function syntheticPatients(): DirectoryPerson[] {
     id: string
     metadata: { patient_id: string; visit_title: string }
     patient_context: {
+      longitudinal_summary?: { condition_labels?: string[] }
       patient: {
         gender?: string
         birthDate?: string
@@ -282,12 +294,24 @@ function syntheticPatients(): DirectoryPerson[] {
       city: address?.city,
       state: address?.state,
       visitTitle: record.metadata.visit_title,
+      primaryProviderId: isCardiovascularPatient(record) ? 'person-oliver-aalami' : undefined,
       sourceRecordId: record.id,
       synthetic: true,
       createdAt: seededAt,
       updatedAt: seededAt,
     }
   })
+}
+
+function isCardiovascularPatient(record: {
+  metadata: { visit_title: string }
+  patient_context: { longitudinal_summary?: { condition_labels?: string[] } }
+}): boolean {
+  const searchable = [
+    record.metadata.visit_title,
+    ...(record.patient_context.longitudinal_summary?.condition_labels ?? []),
+  ].join(' ')
+  return /\b(cardiovascular|cardiac|cardio|heart|coronary|ischemic|myocardial|infarction|hypertension|hyperlipidemia|vascular|stroke|angina|atrial|metabolic syndrome)\b/i.test(searchable)
 }
 
 function patientName(patient: { name?: Array<{ family?: string; given?: string[] }> }): string {

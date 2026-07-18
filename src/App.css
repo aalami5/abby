@@ -1243,9 +1243,9 @@ meter {
   font-weight: 900;
 }
 
-input {
+input,
+textarea {
   width: 100%;
-  min-height: 44px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.92);
@@ -1253,6 +1253,16 @@ input {
   padding: 8px 10px;
   font: inherit;
   font-size: 16px;
+}
+
+input {
+  min-height: 44px;
+}
+
+textarea {
+  min-height: 220px;
+  line-height: 1.45;
+  resize: vertical;
 }
 
 .role-toggle,
@@ -1624,6 +1634,65 @@ input {
   cursor: pointer;
 }
 
+.provider-workspace {
+  grid-template-columns: minmax(380px, 0.92fr) minmax(420px, 1fr);
+  align-items: start;
+}
+
+.provider-profile-panel,
+.provider-panel-list {
+  min-width: 0;
+}
+
+.provider-profile-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.provider-panel-list {
+  display: grid;
+  gap: 12px;
+}
+
+.provider-patient-list {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid #f7e5dd;
+  border-radius: 8px;
+}
+
+.provider-patient-row {
+  min-height: 68px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.62);
+  border-top: 1px solid #f7e5dd;
+}
+
+.provider-patient-row:first-child {
+  border-top: 0;
+}
+
+.provider-patient-row > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.provider-patient-row strong {
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.provider-patient-row span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .person-tags span {
   border-radius: 999px;
   padding: 5px 8px;
@@ -1749,6 +1818,7 @@ input {
   .admin-clean-grid,
   .admin-directory-workspace,
   .patient-detail-workspace,
+  .provider-workspace,
   .chat-layout {
     grid-template-columns: 1fr;
   }
@@ -1761,6 +1831,7 @@ input {
   .compact-patient-form,
   .patient-detail-panel,
   .patient-roster,
+  .provider-profile-panel,
   .chat-context-panel {
     grid-column: auto;
     position: static;
@@ -2036,8 +2107,15 @@ input {
   .otp-panel,
   .people-panel,
   .patient-detail-panel,
-  .patient-roster {
+  .patient-roster,
+  .provider-profile-panel,
+  .provider-panel-list {
     gap: 10px;
+  }
+
+  .provider-patient-row {
+    grid-template-columns: 1fr;
+    align-items: start;
   }
 
   .patient-form-grid {

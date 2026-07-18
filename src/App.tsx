@@ -42,7 +42,7 @@ const menuItems: Array<
   { id: 'users', label: 'Users', icon: UsersRound },
   { id: 'patients', label: 'Patients', icon: UserRound },
   { id: 'chat', label: 'Patient chat', icon: MessageSquareText },
-  { id: 'brief', label: 'Provider brief', icon: Stethoscope },
+  { id: 'brief', label: 'Provider', icon: Stethoscope },
   { id: 'settings', label: 'Settings', icon: Settings, disabled: true },
 ]
 
@@ -62,6 +62,53 @@ const directoryFilterOptions: Array<{
   { value: 'providers', label: 'Providers', description: 'Care team users', role: 'provider', icon: Stethoscope },
   { value: 'patients', label: 'Patients', description: 'Patient directory', role: 'patient', icon: UserRound },
   { value: 'admins', label: 'Admins', description: 'Workspace access', role: 'admin', icon: ShieldCheck },
+]
+
+const medicalSpecialtyOptions = [
+  'Allergy and Immunology',
+  'Anesthesiology',
+  'Cardiology',
+  'Cardiothoracic Surgery',
+  'Colon and Rectal Surgery',
+  'Critical Care Medicine',
+  'Dermatology',
+  'Emergency Medicine',
+  'Endocrinology, Diabetes and Metabolism',
+  'Family Medicine',
+  'Gastroenterology',
+  'General Surgery',
+  'Geriatric Medicine',
+  'Hematology',
+  'Hospice and Palliative Medicine',
+  'Infectious Disease',
+  'Internal Medicine',
+  'Interventional Cardiology',
+  'Medical Genetics and Genomics',
+  'Medical Oncology',
+  'Nephrology',
+  'Neurological Surgery',
+  'Neurology',
+  'Nuclear Medicine',
+  'Obstetrics and Gynecology',
+  'Occupational and Environmental Medicine',
+  'Ophthalmology',
+  'Orthopaedic Surgery',
+  'Otolaryngology - Head and Neck Surgery',
+  'Pathology',
+  'Pediatrics',
+  'Physical Medicine and Rehabilitation',
+  'Plastic Surgery',
+  'Preventive Medicine',
+  'Psychiatry',
+  'Pulmonary Disease',
+  'Radiation Oncology',
+  'Radiology',
+  'Rheumatology',
+  'Sleep Medicine',
+  'Sports Medicine',
+  'Thoracic Surgery',
+  'Urology',
+  'Vascular Surgery',
 ]
 
 function App() {
@@ -240,7 +287,21 @@ function App() {
           />
         )}
         {view === 'patient' && <PatientChat abbyCase={abbyCase} directory={directory} run={activeRun} onLaunch={() => launchRun(abbyCase)} isRunBusy={isRunBusy} />}
-        {view === 'provider' && <ProviderView abbyCase={abbyCase} run={activeRun} onApprove={approveActiveRun} onExecute={executeActiveRun} isRunBusy={isRunBusy} />}
+        {view === 'provider' && directory && (
+          <ProviderView
+            directory={directory}
+            abbyCase={abbyCase}
+            run={activeRun}
+            onDirectoryChange={setDirectory}
+            onApprove={approveActiveRun}
+            onExecute={executeActiveRun}
+            isRunBusy={isRunBusy}
+            onOpenPatient={(recordId) => {
+              setSelectedId(recordId)
+              setView('patient')
+            }}
+          />
+        )}
       </section>
     </main>
   )
@@ -827,20 +888,167 @@ function ageFromBirthDate(birthDate: string): number {
 }
 
 function ProviderView({
+  directory,
   abbyCase,
   run,
+  onDirectoryChange,
   onApprove,
   onExecute,
   isRunBusy,
+  onOpenPatient,
 }: {
+  directory: DirectoryResponse
   abbyCase: AbbyCase
   run?: AbbyRun
+  onDirectoryChange: (directory: DirectoryResponse) => void
   onApprove: () => void
   onExecute: () => void
   isRunBusy: boolean
+  onOpenPatient: (recordId: string) => void
 }) {
+  const providers = directory.people.filter((person) => person.roles.includes('provider'))
+  const defaultProvider = providers.find((person) => person.id === 'person-oliver-aalami') ?? providers[0]
+  const [selectedProviderId, setSelectedProviderId] = useState(defaultProvider?.id ?? '')
+  const selectedProvider = providers.find((provider) => provider.id === selectedProviderId) ?? defaultProvider
+  const assignedPatients = selectedProvider
+    ? directory.people.filter((person) => person.roles.includes('patient') && person.primaryProviderId === selectedProvider.id)
+    : []
+  const [providerForm, setProviderForm] = useState(() => personToProviderForm(selectedProvider))
+  const [providerMessage, setProviderMessage] = useState('')
+  const [isProviderSaving, setIsProviderSaving] = useState(false)
+
+  useEffect(() => {
+    if (!selectedProvider) return
+    setSelectedProviderId(selectedProvider.id)
+    setProviderForm(personToProviderForm(selectedProvider))
+  }, [selectedProvider])
+
+  const saveProvider = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedProvider) return
+    setIsProviderSaving(true)
+    try {
+      const nextDirectory = await saveDirectoryPerson({
+        id: providerForm.id,
+        name: providerForm.name,
+        phone: providerForm.phone,
+        roles: providerForm.roles,
+        specialty: providerForm.specialty,
+        abbyInstructions: providerForm.abbyInstructions,
+        createdAt: providerForm.createdAt || undefined,
+      })
+      onDirectoryChange(nextDirectory)
+      setProviderMessage(`${providerForm.name} updated`)
+    } catch (error) {
+      setProviderMessage(error instanceof Error ? error.message : String(error))
+    } finally {
+      setIsProviderSaving(false)
+    }
+  }
+
+  if (!selectedProvider) {
+    return (
+      <section className="content-grid">
+        <div className="panel empty-patient-detail">
+          <p className="eyebrow">Provider</p>
+          <h2>No provider yet</h2>
+        </div>
+      </section>
+    )
+  }
+
   return (
-    <section className="content-grid two-col">
+    <section className="content-grid provider-workspace">
+      <form className="panel provider-profile-panel" onSubmit={saveProvider}>
+        <div className="panel-title-row patient-detail-title">
+          <div>
+            <p className="eyebrow">Provider profile</p>
+            <h2>{selectedProvider.name}</h2>
+          </div>
+          {providers.length > 1 && (
+            <select
+              value={selectedProvider.id}
+              onChange={(event) => {
+                setSelectedProviderId(event.target.value)
+                setProviderMessage('')
+              }}
+              aria-label="Select provider"
+            >
+              {providers.map((provider) => (
+                <option key={provider.id} value={provider.id}>{provider.name}</option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        <div className="patient-form-grid">
+          <label>
+            <span>Name</span>
+            <input value={providerForm.name} onChange={(event) => setProviderForm({ ...providerForm, name: event.target.value })} required />
+          </label>
+          <label>
+            <span>Cell phone for two-factor authentication</span>
+            <input value={providerForm.phone} onChange={(event) => setProviderForm({ ...providerForm, phone: event.target.value })} required />
+          </label>
+          <label className="wide-field">
+            <span>Specialty</span>
+            <select value={providerForm.specialty} onChange={(event) => setProviderForm({ ...providerForm, specialty: event.target.value })}>
+              <option value="">Unset</option>
+              {medicalSpecialtyOptions.map((specialty) => (
+                <option key={specialty} value={specialty}>{specialty}</option>
+              ))}
+            </select>
+          </label>
+          <label className="wide-field">
+            <span>Abby Instructions</span>
+            <textarea
+              value={providerForm.abbyInstructions}
+              onChange={(event) => setProviderForm({ ...providerForm, abbyInstructions: event.target.value })}
+              spellCheck={false}
+            />
+          </label>
+        </div>
+
+        <div className="patient-detail-actions">
+          <button type="submit" disabled={isProviderSaving}>
+            <Save size={16} /> Save provider
+          </button>
+          {providerMessage && <div className="admin-message">{providerMessage}</div>}
+        </div>
+      </form>
+
+      <div className="panel provider-panel-list">
+        <div className="panel-title-row">
+          <div>
+            <p className="eyebrow">Patient panel</p>
+            <h2>{assignedPatients.length} assigned patients</h2>
+          </div>
+          <UserRound size={20} />
+        </div>
+        <div className="provider-patient-list">
+          {assignedPatients.map((patient) => (
+            <div className="provider-patient-row" key={patient.id}>
+              <div>
+                <strong>{patient.name}</strong>
+                <span>{patient.visitTitle ?? 'Patient'}</span>
+              </div>
+              <span>{patient.birthDate ? `${ageFromBirthDate(patient.birthDate)} yrs` : 'Age unknown'}</span>
+              {patient.sourceRecordId && (
+                <button type="button" className="quiet-button" onClick={() => onOpenPatient(patient.sourceRecordId ?? '')}>
+                  Open chat
+                </button>
+              )}
+            </div>
+          ))}
+          {!assignedPatients.length && (
+            <div className="empty-roster">
+              <strong>No assigned patients</strong>
+              <span>Assign patients from the Patients page.</span>
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="panel action-brief">
         <p className="eyebrow">Provider Action Brief</p>
         <h2>{abbyCase.record.metadata.visit_title}</h2>
@@ -880,6 +1088,18 @@ function ProviderView({
       </div>
     </section>
   )
+}
+
+function personToProviderForm(person?: DirectoryPerson) {
+  return {
+    id: person?.id ?? '',
+    name: person?.name ?? '',
+    phone: person?.phone ?? '',
+    roles: person?.roles ?? (['provider'] as DirectoryRole[]),
+    specialty: person?.specialty ?? '',
+    abbyInstructions: person?.abbyInstructions ?? '',
+    createdAt: person?.createdAt ?? '',
+  }
 }
 
 export default App

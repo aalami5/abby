@@ -175,6 +175,7 @@ export async function saveDirectoryPerson(person: Partial<DirectoryPerson>): Pro
       phone,
       roles: normalizeDirectoryRoles(person.roles ?? existing?.roles ?? ['patient']),
       specialty: person.specialty ?? existing?.specialty,
+      abbyInstructions: person.abbyInstructions ?? existing?.abbyInstructions,
       primaryProviderId: person.primaryProviderId ?? existing?.primaryProviderId,
       gender: person.gender ?? existing?.gender,
       birthDate: person.birthDate ?? existing?.birthDate,
@@ -244,7 +245,8 @@ function normalizeSeededDirectory(current: DirectoryResponse, seededPeople: Dire
           phone: existing.phone || seed.phone,
           roles: existing.roles.length ? normalizeDirectoryRoles(existing.roles) : seed.roles,
           specialty: existing.specialty,
-          primaryProviderId: existing.primaryProviderId,
+          abbyInstructions: existing.abbyInstructions ?? seed.abbyInstructions,
+          primaryProviderId: existing.primaryProviderId ?? seed.primaryProviderId,
           gender: existing.gender,
           birthDate: existing.birthDate,
           city: existing.city,
@@ -273,7 +275,15 @@ function oliverAdmin(): DirectoryPerson {
     id: 'person-oliver-aalami',
     name: 'Oliver Aalami',
     phone: '+16503153236',
-    roles: ['admin'],
+    roles: ['admin', 'provider', 'patient'],
+    specialty: 'Vascular Surgery',
+    abbyInstructions: [
+      '# Abby Instructions for Oliver Aalami',
+      '',
+      'Use a vascular-surgery lens for patient outreach and provider briefs.',
+      'Prioritize cardiovascular risk, limb symptoms, wound status, medication adherence, and urgent red flags.',
+      'Keep patient-facing language concise, calm, and action-oriented.',
+    ].join('\n'),
     createdAt: seededAt,
     updatedAt: seededAt,
   }
@@ -300,9 +310,18 @@ function syntheticPatient(record: EncounterRecord, index: number): DirectoryPers
     city: address?.city,
     state: address?.state,
     visitTitle: record.metadata.visit_title,
+    primaryProviderId: isCardiovascularPatient(record) ? 'person-oliver-aalami' : undefined,
     sourceRecordId: record.id,
     synthetic: true,
     createdAt: seededAt,
     updatedAt: seededAt,
   }
+}
+
+function isCardiovascularPatient(record: EncounterRecord): boolean {
+  const searchable = [
+    record.metadata.visit_title,
+    ...record.patient_context.longitudinal_summary.condition_labels,
+  ].join(' ')
+  return /\b(cardiovascular|cardiac|cardio|heart|coronary|ischemic|myocardial|infarction|hypertension|hyperlipidemia|vascular|stroke|angina|atrial|metabolic syndrome)\b/i.test(searchable)
 }
