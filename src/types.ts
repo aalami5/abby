@@ -102,7 +102,7 @@ export type AbbyCase = {
   evalScores: Array<{ metric: string; score: number; target: number }>
 }
 
-export type DirectoryRole = 'superadmin' | 'provider' | 'patient'
+export type DirectoryRole = 'admin' | 'superadmin' | 'provider' | 'patient'
 
 export type DirectoryPerson = {
   id: string
@@ -128,6 +128,7 @@ export type DirectoryResponse = {
   people: DirectoryPerson[]
   counts: {
     people: number
+    admins?: number
     superadmins: number
     providers: number
     patients: number

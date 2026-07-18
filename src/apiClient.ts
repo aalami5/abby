@@ -48,16 +48,18 @@ function writeLocalDirectory(directory: DirectoryResponse) {
 
 function toLocalDirectoryResponse(people: DirectoryPerson[], extra: Partial<DirectoryResponse> = {}): DirectoryResponse {
   const sorted = [...people].sort((a, b) => {
-    const priority = Number(b.roles.includes('superadmin')) - Number(a.roles.includes('superadmin'))
+    const priority = Number(hasAdminRole(b)) - Number(hasAdminRole(a))
     return priority || a.name.localeCompare(b.name)
   })
+  const admins = sorted.filter(hasAdminRole).length
   return {
     persistence: 'browser-fallback',
     auth: 'mock-otp',
     people: sorted,
     counts: {
       people: sorted.length,
-      superadmins: sorted.filter((person) => person.roles.includes('superadmin')).length,
+      admins,
+      superadmins: admins,
       providers: sorted.filter((person) => person.roles.includes('provider')).length,
       patients: sorted.filter((person) => person.roles.includes('patient')).length,
     },
@@ -171,7 +173,7 @@ export async function saveDirectoryPerson(person: Partial<DirectoryPerson>): Pro
       id: person.id ?? existing?.id ?? `person-${Date.now()}`,
       name: person.name ?? existing?.name ?? 'New person',
       phone,
-      roles: person.roles ?? existing?.roles ?? ['patient'],
+      roles: normalizeDirectoryRoles(person.roles ?? existing?.roles ?? ['patient']),
       specialty: person.specialty ?? existing?.specialty,
       primaryProviderId: person.primaryProviderId ?? existing?.primaryProviderId,
       createdAt: person.createdAt ?? existing?.createdAt ?? now,
@@ -233,7 +235,7 @@ function normalizeSeededDirectory(current: DirectoryResponse, seededPeople: Dire
           ...seed,
           name: existing.name || seed.name,
           phone: existing.phone || seed.phone,
-          roles: existing.roles.length ? existing.roles : seed.roles,
+          roles: existing.roles.length ? normalizeDirectoryRoles(existing.roles) : seed.roles,
           specialty: existing.specialty,
           primaryProviderId: existing.primaryProviderId,
           createdAt: existing.createdAt || seed.createdAt,
@@ -257,10 +259,18 @@ function oliverSuperadmin(): DirectoryPerson {
     id: 'person-oliver-aalami',
     name: 'Oliver Aalami',
     phone: '+16503153236',
-    roles: ['superadmin'],
+    roles: ['admin'],
     createdAt: seededAt,
     updatedAt: seededAt,
   }
+}
+
+function hasAdminRole(person: DirectoryPerson): boolean {
+  return person.roles.some((role) => role === 'admin' || role === 'superadmin')
+}
+
+function normalizeDirectoryRoles(roles: DirectoryPerson['roles']): DirectoryPerson['roles'] {
+  return roles.map((role) => role === 'superadmin' ? 'admin' : role)
 }
 
 function syntheticPatient(record: EncounterRecord, index: number): DirectoryPerson {

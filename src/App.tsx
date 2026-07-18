@@ -36,6 +36,7 @@ import type { AbbyCase, AbbyRun, DirectoryPerson, DirectoryResponse, DirectoryRo
 type View = 'admin' | 'patient' | 'provider'
 type AdminSection = 'dashboard' | 'users' | 'patients'
 type WorkspaceRole = 'admin' | 'coach' | 'kaiser'
+type DirectoryUserFilter = 'providers' | 'patients' | 'admins'
 
 const menuItems: Array<
   | { id: 'dashboard' | 'users' | 'patients' | 'chat' | 'brief'; label: string; icon: typeof LayoutDashboard }
@@ -52,9 +53,21 @@ const menuItems: Array<
 ]
 
 const directoryRoleOptions: Array<{ value: DirectoryRole; label: string }> = [
+  { value: 'admin', label: 'Admin' },
   { value: 'patient', label: 'Patient' },
   { value: 'provider', label: 'Provider' },
-  { value: 'superadmin', label: 'Superadmin' },
+]
+
+const directoryFilterOptions: Array<{
+  value: DirectoryUserFilter
+  label: string
+  description: string
+  role: DirectoryRole
+  icon: typeof UsersRound
+}> = [
+  { value: 'providers', label: 'Providers', description: 'Care team users', role: 'provider', icon: Stethoscope },
+  { value: 'patients', label: 'Patients', description: 'Patient directory', role: 'patient', icon: UserRound },
+  { value: 'admins', label: 'Admins', description: 'Workspace access', role: 'admin', icon: ShieldCheck },
 ]
 
 const workspaceRoleOptions: Array<{ value: WorkspaceRole; label: string; description: string }> = [
@@ -334,7 +347,7 @@ function Header({
       )}
       {view === 'admin' && directory && (
         <div className="status-strip desktop-status">
-          <span>{directory.counts.superadmins} superadmin</span>
+          <span>{adminCount(directory)} admins</span>
           <span>{directory.counts.providers} providers</span>
           <span>{directory.counts.patients} patients</span>
         </div>
@@ -363,10 +376,13 @@ function AdminView({
     roles: ['patient'] as DirectoryRole[],
     createdAt: '',
   })
+  const [userFilter, setUserFilter] = useState<DirectoryUserFilter>('patients')
   const [adminMessage, setAdminMessage] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const users = directory.people
   const patients = directory.people.filter((person) => person.roles.includes('patient'))
+  const activeFilter = directoryFilterOptions.find((option) => option.value === userFilter) ?? directoryFilterOptions[0]
+  const filteredUsers = directory.people.filter((person) => hasDirectoryRole(person, activeFilter.role))
   const isEditing = Boolean(form.id)
 
   const savePerson = async (event: FormEvent<HTMLFormElement>) => {
@@ -377,7 +393,7 @@ function AdminView({
         id: form.id || undefined,
         name: form.name,
         phone: form.phone,
-        roles: form.roles,
+        roles: normalizeDirectoryRoles(form.roles),
         createdAt: form.createdAt || undefined,
       })
       onDirectoryChange(nextDirectory)
@@ -391,7 +407,7 @@ function AdminView({
   }
 
   const resetForm = () => {
-    setForm({ id: '', name: '', phone: '', roles: ['patient'], createdAt: '' })
+    setForm({ id: '', name: '', phone: '', roles: [activeFilter.role], createdAt: '' })
   }
 
   const editPerson = (person: DirectoryPerson) => {
@@ -399,10 +415,12 @@ function AdminView({
       id: person.id,
       name: person.name,
       phone: person.phone,
-      roles: person.roles,
+      roles: normalizeDirectoryRoles(person.roles),
       createdAt: person.createdAt,
     })
-    onAdminSectionChange(person.roles.includes('patient') ? 'patients' : 'users')
+    const nextFilter = filterForPerson(person)
+    setUserFilter(nextFilter)
+    onAdminSectionChange(adminSection === 'patients' && person.roles.includes('patient') ? 'patients' : 'users')
     setAdminMessage(`Editing ${person.name}`)
   }
 
@@ -423,8 +441,8 @@ function AdminView({
             </div>
             <div className="panel admin-metric-card">
               <ShieldCheck size={22} />
-              <span>Superadmins</span>
-              <strong>{directory.counts.superadmins}</strong>
+              <span>Admins</span>
+              <strong>{adminCount(directory)}</strong>
             </div>
             <div className="panel admin-metric-card">
               <Stethoscope size={22} />
@@ -478,10 +496,21 @@ function AdminView({
           </form>
 
           <UserRoster
-            users={users}
+            users={filteredUsers}
             eyebrow="Users"
-            title={`${users.length} directory users`}
-            ariaLabel="Users"
+            title={`${filteredUsers.length} ${activeFilter.label.toLowerCase()}`}
+            emptyLabel={activeFilter.label.toLowerCase()}
+            ariaLabel={activeFilter.label}
+            filters={directoryFilterOptions.map((option) => ({
+              ...option,
+              count: directory.people.filter((person) => hasDirectoryRole(person, option.role)).length,
+            }))}
+            activeFilter={userFilter}
+            onFilterChange={(nextFilter) => {
+              setUserFilter(nextFilter)
+              const nextRole = directoryFilterOptions.find((option) => option.value === nextFilter)?.role ?? 'provider'
+              if (!isEditing) setForm((current) => ({ ...current, roles: [nextRole] }))
+            }}
             onEdit={editPerson}
             onOpenPatient={onOpenPatient}
           />
@@ -508,14 +537,22 @@ function UserRoster({
   users,
   eyebrow,
   title,
+  emptyLabel,
   ariaLabel,
+  filters,
+  activeFilter,
+  onFilterChange,
   onEdit,
   onOpenPatient,
 }: {
   users: DirectoryPerson[]
   eyebrow: string
   title: string
+  emptyLabel?: string
   ariaLabel: string
+  filters?: Array<(typeof directoryFilterOptions)[number] & { count: number }>
+  activeFilter?: DirectoryUserFilter
+  onFilterChange?: (filter: DirectoryUserFilter) => void
   onEdit: (person: DirectoryPerson) => void
   onOpenPatient: (recordId: string) => void
 }) {
@@ -528,6 +565,28 @@ function UserRoster({
         </div>
         <UserRound size={20} />
       </div>
+      {filters && activeFilter && onFilterChange && (
+        <div className="directory-filter-bar" aria-label="Filter users by role">
+          {filters.map((filter) => {
+            const Icon = filter.icon
+            return (
+              <button
+                key={filter.value}
+                type="button"
+                className={filter.value === activeFilter ? 'selected' : ''}
+                onClick={() => onFilterChange(filter.value)}
+              >
+                <Icon size={18} />
+                <span>
+                  <strong>{filter.label}</strong>
+                  <small>{filter.description}</small>
+                </span>
+                <b>{filter.count}</b>
+              </button>
+            )
+          })}
+        </div>
+      )}
       <div className="patient-table" role="table" aria-label={ariaLabel}>
         <div className="patient-table-head" role="row">
           <span>Name</span>
@@ -565,13 +624,39 @@ function UserRoster({
             </div>
           )
         })}
+        {!users.length && (
+          <div className="empty-roster">
+            <strong>No {emptyLabel ?? title.toLowerCase()} yet</strong>
+            <span>Add one from the form on the left.</span>
+          </div>
+        )}
       </div>
     </div>
   )
 }
 
 function roleLabel(role: DirectoryRole): string {
+  if (role === 'superadmin') return 'Admin'
   return directoryRoleOptions.find((option) => option.value === role)?.label ?? role
+}
+
+function hasDirectoryRole(person: DirectoryPerson, role: DirectoryRole): boolean {
+  if (role === 'admin') return person.roles.some((personRole) => personRole === 'admin' || personRole === 'superadmin')
+  return person.roles.includes(role)
+}
+
+function filterForPerson(person: DirectoryPerson): DirectoryUserFilter {
+  if (hasDirectoryRole(person, 'admin')) return 'admins'
+  if (person.roles.includes('provider')) return 'providers'
+  return 'patients'
+}
+
+function adminCount(directory: DirectoryResponse): number {
+  return directory.counts.admins ?? directory.counts.superadmins
+}
+
+function normalizeDirectoryRoles(roles: DirectoryRole[]): DirectoryRole[] {
+  return roles.map((role) => role === 'superadmin' ? 'admin' : role)
 }
 
 function ageFromBirthDate(birthDate: string): number {

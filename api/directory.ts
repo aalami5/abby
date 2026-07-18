@@ -1,7 +1,7 @@
 import { googlePersistenceLabel, readGoogleJson, writeGoogleJson } from './googleCloudStore.js'
 import records from '../public/data/synthetic-ambient-fhir-25.json' with { type: 'json' }
 
-type Role = 'superadmin' | 'provider' | 'patient'
+type Role = 'admin' | 'superadmin' | 'provider' | 'patient'
 
 type DirectoryPerson = {
   id: string
@@ -113,9 +113,10 @@ export default async function handler(request: VercelRequest, response: VercelRe
 
 function toResponse(current: DirectoryStore) {
   const people = [...current.people].sort((a, b) => {
-    const priority = Number(b.roles.includes('superadmin')) - Number(a.roles.includes('superadmin'))
+    const priority = Number(hasAdminRole(b)) - Number(hasAdminRole(a))
     return priority || a.name.localeCompare(b.name)
   })
+  const admins = people.filter(hasAdminRole).length
   return {
     service: 'abby',
     persistence: googlePersistenceLabel(),
@@ -123,7 +124,8 @@ function toResponse(current: DirectoryStore) {
     people,
     counts: {
       people: people.length,
-      superadmins: people.filter((person) => person.roles.includes('superadmin')).length,
+      admins,
+      superadmins: admins,
       providers: people.filter((person) => person.roles.includes('provider')).length,
       patients: people.filter((person) => person.roles.includes('patient')).length,
     },
@@ -161,8 +163,8 @@ function normalizePerson(value: unknown, people: DirectoryPerson[]): DirectoryPe
 
 function normalizeRoles(value: unknown): Role[] {
   if (!Array.isArray(value)) return []
-  const allowed = new Set<Role>(['superadmin', 'provider', 'patient'])
-  return [...new Set(value.filter((role): role is Role => typeof role === 'string' && allowed.has(role as Role)))]
+  const allowed = new Set<Role>(['admin', 'superadmin', 'provider', 'patient'])
+  return [...new Set(value.filter((role): role is Role => typeof role === 'string' && allowed.has(role as Role)).map((role) => role === 'superadmin' ? 'admin' : role))]
 }
 
 function normalizePhone(value: unknown): string {
@@ -204,7 +206,7 @@ function normalizeSeededStore(current: DirectoryStore): DirectoryStore {
           ...seed,
           name: existing.name || seed.name,
           phone: existing.phone || seed.phone,
-          roles: existing.roles.length ? existing.roles : seed.roles,
+          roles: existing.roles.length ? normalizeRoles(existing.roles) : seed.roles,
           specialty: existing.specialty,
           primaryProviderId: existing.primaryProviderId,
           createdAt: existing.createdAt || seed.createdAt,
@@ -231,10 +233,14 @@ function oliverSuperadmin(): DirectoryPerson {
     id: 'person-oliver-aalami',
     name: 'Oliver Aalami',
     phone: '+16503153236',
-    roles: ['superadmin'],
+    roles: ['admin'],
     createdAt: seededAt,
     updatedAt: seededAt,
   }
+}
+
+function hasAdminRole(person: DirectoryPerson): boolean {
+  return person.roles.some((role) => role === 'admin' || role === 'superadmin')
 }
 
 function syntheticPatients(): DirectoryPerson[] {

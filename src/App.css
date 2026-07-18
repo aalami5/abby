@@ -1415,6 +1415,73 @@ input {
   min-width: 0;
 }
 
+.directory-filter-bar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.directory-filter-bar button {
+  min-height: 72px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--muted);
+  padding: 10px;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.directory-filter-bar button:hover,
+.directory-filter-bar button.selected {
+  border-color: rgba(239, 37, 7, 0.44);
+  background: #fff8f6;
+  color: var(--ink);
+}
+
+.directory-filter-bar button.selected {
+  box-shadow: inset 0 0 0 1px rgba(239, 37, 7, 0.2);
+}
+
+.directory-filter-bar svg {
+  color: var(--abridge);
+}
+
+.directory-filter-bar span {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.directory-filter-bar strong {
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.1;
+}
+
+.directory-filter-bar small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.directory-filter-bar b {
+  min-width: 28px;
+  min-height: 26px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--cream);
+  color: var(--abridge-dark);
+  font-size: 12px;
+}
+
 .patient-table {
   display: grid;
   overflow: hidden;
@@ -1495,6 +1562,23 @@ input {
 .patient-actions {
   display: grid;
   gap: 6px;
+}
+
+.empty-roster {
+  min-height: 120px;
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  border-top: 1px solid #f7e5dd;
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--muted);
+  text-align: center;
+  padding: 20px;
+}
+
+.empty-roster strong {
+  color: var(--ink);
+  font-size: 17px;
 }
 
 .quiet-button {
@@ -1929,6 +2013,15 @@ input {
   .people-panel,
   .patient-roster {
     gap: 10px;
+  }
+
+  .directory-filter-bar {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .directory-filter-bar button {
+    min-height: 58px;
   }
 
   .person-form label,
