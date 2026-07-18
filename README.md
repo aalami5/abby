@@ -40,9 +40,10 @@ https://abby-mocha.vercel.app/api/health
 https://abby-mocha.vercel.app/api/capabilities
 https://abby-mocha.vercel.app/api/runs
 https://abby-mocha.vercel.app/api/directory
+https://abby-mocha.vercel.app/api/chat
 ```
 
-Run state uses the `/api/runs` lifecycle API. Superadmin people, role, patient, provider, and OTP state use `/api/directory`. In production, the APIs use Google Cloud Firestore when the Google service-account environment variables are configured; otherwise they fall back to serverless memory, which is enough to prove the flow but not durable across cold starts.
+Run state uses the `/api/runs` lifecycle API. Superadmin people, role, patient, provider, and OTP state use `/api/directory`. Patient chat uses `/api/chat`, which calls Claude server-side. In production, the APIs use Google Cloud Firestore when the Google service-account environment variables are configured; otherwise they fall back to serverless memory, which is enough to prove the flow but not durable across cold starts.
 
 ## Data
 
@@ -57,6 +58,15 @@ No real patient data is included.
 ## Secrets
 
 Use `.env.example` as the template. Do not commit real API keys.
+
+Required for patient chat:
+
+```text
+ANTHROPIC_API_KEY
+ABBY_CLAUDE_MODEL=claude-sonnet-5
+```
+
+`CLAUDE_API_KEY` is accepted as a fallback when `ANTHROPIC_API_KEY` is not set.
 
 Optional Google Cloud Firestore env vars:
 

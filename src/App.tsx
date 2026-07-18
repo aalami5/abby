@@ -2,7 +2,6 @@ import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import {
   Activity,
   CalendarCheck,
-  ChevronRight,
   ClipboardList,
   LayoutDashboard,
   MessageSquareText,
@@ -16,6 +15,7 @@ import {
 } from 'lucide-react'
 import './App.css'
 import { buildCase, loadRecords } from './abbyEngine'
+import { PatientChat } from './PatientChat'
 import {
   approveCloudRun,
   executeCloudRun,
@@ -30,7 +30,7 @@ type View = 'admin' | 'patient' | 'provider'
 
 const views: Array<{ id: View; label: string; icon: typeof LayoutDashboard }> = [
   { id: 'admin', label: 'Superadmin', icon: LayoutDashboard },
-  { id: 'patient', label: 'Patient demo', icon: MessageSquareText },
+  { id: 'patient', label: 'Chat', icon: MessageSquareText },
   { id: 'provider', label: 'Brief', icon: Stethoscope },
 ]
 
@@ -177,7 +177,7 @@ function App() {
             }}
           />
         )}
-        {view === 'patient' && <PatientView abbyCase={abbyCase} run={activeRun} onLaunch={() => launchRun(abbyCase)} isRunBusy={isRunBusy} />}
+        {view === 'patient' && <PatientChat abbyCase={abbyCase} directory={directory} run={activeRun} onLaunch={() => launchRun(abbyCase)} isRunBusy={isRunBusy} />}
         {view === 'provider' && <ProviderView abbyCase={abbyCase} run={activeRun} onApprove={approveActiveRun} onExecute={executeActiveRun} isRunBusy={isRunBusy} />}
       </section>
     </main>
@@ -234,59 +234,6 @@ function Header({
         <span>{abbyCase.evalScores.filter((item) => item.score >= item.target).length}/{abbyCase.evalScores.length} evals passing</span>
       </div>
     </header>
-  )
-}
-
-function PatientView({ abbyCase, run, onLaunch, isRunBusy }: { abbyCase: AbbyCase; run?: AbbyRun; onLaunch: () => void; isRunBusy: boolean }) {
-  const transcript = run?.transcript ?? abbyCase.intake
-
-  return (
-    <section className="content-grid two-col">
-      <div className="phone-surface" aria-label="Patient conversation preview">
-        <div className="phone-top">
-          <div className="avatar small">{abbyCase.initials}</div>
-          <div>
-            <strong>Abby intake</strong>
-            <span>Verified patient channel</span>
-          </div>
-        </div>
-        <div className="message-list">
-          {transcript.map((item, index) => (
-            <div key={item.prompt} className="message-pair">
-              <div className="bubble abby">{item.prompt}</div>
-              <div className="bubble patient">{item.answer}</div>
-              <span className="map-label">{item.mapsTo}</span>
-              {index < transcript.length - 1 && <ChevronRight className="flow-arrow" size={14} />}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="panel">
-        <p className="eyebrow">Synthetic patient actor</p>
-        <h2>{run ? 'Run transcript captured' : 'Transcript-grounded role play'}</h2>
-        <p className="body-copy">
-          The patient actor should answer from the ambient transcript, note, AVS, and FHIR chart context, then refuse unsupported facts. This keeps demos repeatable and turns the Abridge dataset into test infrastructure.
-        </p>
-        <div className="run-summary">
-          <span className={`pill ${run ? 'now' : 'next'}`}>{run ? run.stage : 'not launched'}</span>
-          <span>{run ? `${run.patientChannel.toUpperCase()} verified` : 'Ready to launch synthetic outreach'}</span>
-          <button type="button" onClick={onLaunch} disabled={isRunBusy}><MessageSquareText size={16} /> {run ? 'Open run' : 'Launch run'}</button>
-        </div>
-        <div className="signal-list">
-          {abbyCase.signals.map((signal) => (
-            <div className="signal" key={`${signal.label}-${signal.value}`}>
-              <span className={`severity ${signal.severity}`}>{signal.severity}</span>
-              <div>
-                <strong>{signal.label}</strong>
-                <p>{signal.value}</p>
-              </div>
-              <small>{signal.source}</small>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
   )
 }
 

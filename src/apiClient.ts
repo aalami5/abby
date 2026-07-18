@@ -1,4 +1,5 @@
 import { approveRun, createRun, executeApprovedRun, getPatientName, loadRecords } from './abbyEngine'
+import type { AbbyChatContext, AbbyChatMessage, AbbyChatResponse } from './chatTypes'
 import type { AbbyCase, AbbyRun, DirectoryPerson, DirectoryResponse, EncounterRecord } from './types'
 
 type RunsResponse = {
@@ -137,6 +138,13 @@ export async function executeCloudRun(abbyCase: AbbyCase, run: AbbyRun): Promise
     writeLocalRuns(runsByCase)
     return { persistence: 'browser-fallback', runsByCase }
   }
+}
+
+export async function sendChatMessage(input: { messages: AbbyChatMessage[]; context: AbbyChatContext }): Promise<AbbyChatResponse> {
+  return requestJson<AbbyChatResponse>('/api/chat', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
 }
 
 export async function loadDirectory(): Promise<DirectoryResponse> {
