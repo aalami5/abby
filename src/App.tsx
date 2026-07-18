@@ -10,6 +10,7 @@ import {
   Pencil,
   Plus,
   Save,
+  Send,
   Settings,
   ShieldCheck,
   Stethoscope,
@@ -21,6 +22,7 @@ import {
 import './App.css'
 import { buildCase, loadRecords } from './abbyEngine'
 import { PatientChat } from './PatientChat'
+import { chatStorageKey, initialAbbyMessage, providerPreVisitMessage, type AbbyChatMessage } from './chatTypes'
 import {
   approveCloudRun,
   executeCloudRun,
@@ -323,6 +325,7 @@ function App() {
             onApprove={approveActiveRun}
             onExecute={executeActiveRun}
             isRunBusy={isRunBusy}
+            records={records}
             onOpenPatient={(recordId) => {
               setSelectedId(recordId)
               setView('patient')
@@ -922,6 +925,7 @@ function ProviderView({
   onApprove,
   onExecute,
   isRunBusy,
+  records,
   onOpenPatient,
 }: {
   directory: DirectoryResponse
@@ -931,6 +935,7 @@ function ProviderView({
   onApprove: () => void
   onExecute: () => void
   isRunBusy: boolean
+  records: EncounterRecord[]
   onOpenPatient: (recordId: string) => void
 }) {
   const providers = directory.people.filter((person) => person.roles.includes('provider'))
@@ -942,6 +947,7 @@ function ProviderView({
     : []
   const [providerForm, setProviderForm] = useState(() => personToProviderForm(selectedProvider))
   const [providerMessage, setProviderMessage] = useState('')
+  const [preVisitStatusByPatient, setPreVisitStatusByPatient] = useState<Record<string, string>>({})
   const [isProviderSaving, setIsProviderSaving] = useState(false)
 
   useEffect(() => {
@@ -971,6 +977,27 @@ function ProviderView({
     } finally {
       setIsProviderSaving(false)
     }
+  }
+
+  const initiatePreVisit = (patient: DirectoryPerson) => {
+    if (!patient.sourceRecordId) return
+    const record = records.find((candidate) => candidate.id === patient.sourceRecordId)
+    if (!record) {
+      setPreVisitStatusByPatient((current) => ({ ...current, [patient.id]: 'Synthetic record unavailable' }))
+      return
+    }
+
+    const nextCase = buildCase(record)
+    const storageKey = chatStorageKey(record.id)
+    const preVisitMessage = providerPreVisitMessage(nextCase, selectedProvider)
+    const fallbackMessage = initialAbbyMessage(nextCase, selectedProvider)
+    const storedMessages = readChatThread(storageKey)
+    const existingMessages = storedMessages.length ? storedMessages : [fallbackMessage]
+    const hasPreVisitMessage = existingMessages.some((message) => message.id === preVisitMessage.id)
+    const nextMessages = hasPreVisitMessage ? existingMessages : [preVisitMessage, ...existingMessages.filter((message) => message.id !== fallbackMessage.id)]
+
+    window.localStorage.setItem(storageKey, JSON.stringify(nextMessages))
+    setPreVisitStatusByPatient((current) => ({ ...current, [patient.id]: hasPreVisitMessage ? 'Pre-visit already initiated' : 'Pre-visit sent to patient chat' }))
   }
 
   if (!selectedProvider) {
@@ -1058,12 +1085,18 @@ function ProviderView({
               <div>
                 <strong>{patient.name}</strong>
                 <span>{patient.visitTitle ?? 'Patient'}</span>
+                {preVisitStatusByPatient[patient.id] && <small>{preVisitStatusByPatient[patient.id]}</small>}
               </div>
               <span>{patient.birthDate ? `${ageFromBirthDate(patient.birthDate)} yrs` : 'Age unknown'}</span>
               {patient.sourceRecordId && (
-                <button type="button" className="quiet-button" onClick={() => onOpenPatient(patient.sourceRecordId ?? '')}>
-                  Open chat
-                </button>
+                <div className="provider-patient-actions">
+                  <button type="button" className="quiet-button" onClick={() => initiatePreVisit(patient)}>
+                    <Send size={15} /> Initiate pre-visit
+                  </button>
+                  <button type="button" className="quiet-button" onClick={() => onOpenPatient(patient.sourceRecordId ?? '')}>
+                    Open chat
+                  </button>
+                </div>
               )}
             </div>
           ))}
@@ -1115,6 +1148,17 @@ function ProviderView({
       </div>
     </section>
   )
+}
+
+function readChatThread(storageKey: string): AbbyChatMessage[] {
+  const stored = window.localStorage.getItem(storageKey)
+  if (!stored) return []
+  try {
+    const parsed = JSON.parse(stored) as AbbyChatMessage[]
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
 }
 
 function personToProviderForm(person?: DirectoryPerson) {

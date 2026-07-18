@@ -38,6 +38,10 @@ export type AbbyChatResponse = {
   model: string
 }
 
+export function chatStorageKey(recordId: string): string {
+  return `abby.chat.${recordId}`
+}
+
 export function buildChatContext(abbyCase: AbbyCase, provider?: DirectoryPerson): AbbyChatContext {
   const address = abbyCase.record.patient_context.patient.address?.[0]
   const specialist = provider
@@ -80,6 +84,21 @@ export function initialAbbyMessage(abbyCase: AbbyCase, provider?: DirectoryPerso
     content: `Hi ${abbyCase.patientName.split(' ')[0] || 'there'}, I am Abby, checking in on behalf of ${specialist}. How are things going since your ${abbyCase.record.metadata.visit_title.toLowerCase()}?`,
     timestamp: new Date().toISOString(),
   }
+}
+
+export function providerPreVisitMessage(abbyCase: AbbyCase, provider?: DirectoryPerson): AbbyChatMessage {
+  const specialist = provider?.name ?? `your ${inferSpecialty(abbyCase.record.metadata.visit_title)} specialist`
+  return {
+    id: `abby-previsit-${abbyCase.record.id}`,
+    sender: 'abby',
+    content: `Hi ${abbyCase.patientName.split(' ')[0] || 'there'}, Dr. ${specialist.replace(/^Dr\.\s*/i, '')} is looking forward to your visit. I am Abby, his assistant, and I would like to ask you a few questions before your visit.`,
+    timestamp: new Date().toISOString(),
+  }
+}
+
+export function createMessageId(prefix: string): string {
+  if ('randomUUID' in crypto) return `${prefix}-${crypto.randomUUID()}`
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
 function inferSpecialty(visitTitle: string): string {

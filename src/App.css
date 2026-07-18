@@ -1689,7 +1689,7 @@ textarea {
 .provider-patient-row {
   min-height: 68px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto minmax(168px, auto);
   align-items: center;
   gap: 12px;
   padding: 12px;
@@ -1716,6 +1716,27 @@ textarea {
   color: var(--muted);
   font-size: 13px;
   font-weight: 800;
+}
+
+.provider-patient-row small {
+  color: var(--abridge);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.provider-patient-actions {
+  min-width: 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.provider-patient-actions .quiet-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 .person-tags span {

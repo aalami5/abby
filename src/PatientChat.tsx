@@ -1,7 +1,7 @@
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, Bot, ClipboardList, Send, Sparkles, Stethoscope, UserRound } from 'lucide-react'
 import type { AbbyCase, AbbyRun, DirectoryResponse } from './types'
-import { buildChatContext, initialAbbyMessage, type AbbyChatMessage } from './chatTypes'
+import { buildChatContext, chatStorageKey, createMessageId, initialAbbyMessage, type AbbyChatMessage } from './chatTypes'
 import { sendChatMessage } from './apiClient'
 
 type PatientChatProps = {
@@ -20,7 +20,7 @@ export function PatientChat({ abbyCase, directory, run, onLaunch, isRunBusy, pat
     return directory.people.find((person) => person.id === patient?.primaryProviderId) ?? directory.people.find((person) => person.roles.includes('provider'))
   }, [abbyCase.record.id, directory])
   const context = useMemo(() => buildChatContext(abbyCase, provider), [abbyCase, provider])
-  const storageKey = `abby.chat.${abbyCase.record.id}`
+  const storageKey = chatStorageKey(abbyCase.record.id)
   const [messages, setMessages] = useState<AbbyChatMessage[]>(() => readStoredMessages(storageKey, abbyCase, provider))
   const [draft, setDraft] = useState('')
   const [error, setError] = useState('')
@@ -170,11 +170,6 @@ function readStoredMessages(storageKey: string, abbyCase: AbbyCase, provider: Pa
     window.localStorage.removeItem(storageKey)
     return [initialAbbyMessage(abbyCase, provider)]
   }
-}
-
-function createMessageId(prefix: string): string {
-  if ('randomUUID' in crypto) return `${prefix}-${crypto.randomUUID()}`
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
 function formatTime(timestamp: string): string {
