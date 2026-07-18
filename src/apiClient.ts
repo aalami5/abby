@@ -95,9 +95,20 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
     },
   })
   if (!response.ok) {
-    throw new Error(`Abby API returned ${response.status}`)
+    const detail = await readErrorDetail(response)
+    throw new Error(detail ? `Abby API returned ${response.status}: ${detail}` : `Abby API returned ${response.status}`)
   }
   return response.json() as Promise<T>
+}
+
+async function readErrorDetail(response: Response): Promise<string> {
+  try {
+    const payload = await response.json() as { error?: unknown; message?: unknown }
+    const detail = payload.error ?? payload.message
+    return typeof detail === 'string' ? detail : ''
+  } catch {
+    return ''
+  }
 }
 
 export async function loadRuns(): Promise<RunsResponse> {

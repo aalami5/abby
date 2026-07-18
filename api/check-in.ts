@@ -71,7 +71,14 @@ export default async function handler(request: VercelRequest, response: VercelRe
 
     const payload = await twilioResponse.json() as TwilioMessagePayload
     if (!twilioResponse.ok) {
-      response.status(twilioResponse.status).json({ error: payload.message ?? `Twilio returned ${twilioResponse.status}` })
+      response.status(200).json({
+        mode: 'twilio',
+        status: 'failed',
+        message,
+        twilioMessageSid: payload.sid,
+        twilioErrorCode: payload.error_code ?? twilioResponse.status,
+        twilioErrorMessage: payload.message ?? payload.error_message ?? `Twilio returned ${twilioResponse.status}`,
+      })
       return
     }
 
