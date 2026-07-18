@@ -27,6 +27,12 @@ type DirectoryStore = {
   otp: Record<string, { code: string; expiresAt: string; verifiedAt?: string }>
 }
 
+type TwilioVerifyConfig = {
+  accountSid: string
+  authToken: string
+  verifyServiceSid: string
+}
+
 type AbbyGlobal = typeof globalThis & {
   abbyDirectoryStore?: DirectoryStore
 }
@@ -80,7 +86,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
           response.status(401).json({ error: 'Invalid or expired code' })
           return
         }
-        challenge.verifiedAt = new Date().toISOString()
+        if (challenge) challenge.verifiedAt = new Date().toISOString()
         await writeStore(current)
         response.status(200).json({ ...toResponse(current), session: { phone, roles: current.people.find((person) => person.phone === phone)?.roles ?? [] } })
         return
@@ -324,14 +330,12 @@ function syntheticPhone(index: number): string {
 }
 
 async function sendOtp(phone: string, _code: string) {
-  if (!hasTwilioVerify()) return
-  const accountSid = process.env.TWILIO_ACCOUNT_SID ?? ''
-  const authToken = process.env.TWILIO_AUTH_TOKEN ?? ''
-  const verifySid = process.env.TWILIO_VERIFY_SERVICE_SID ?? ''
-  const twilioResponse = await fetch(`https://verify.twilio.com/v2/Services/${verifySid}/Verifications`, {
+  const twilio = getTwilioVerifyConfig()
+  if (!twilio) return
+  const twilioResponse = await fetch(`https://verify.twilio.com/v2/Services/${twilio.verifyServiceSid}/Verifications`, {
     method: 'POST',
     headers: {
-      authorization: `Basic ${btoa(`${accountSid}:${authToken}`)}`,
+      authorization: twilioAuthorization(twilio),
       'content-type': 'application/x-www-form-urlencoded',
     },
     body: new URLSearchParams({ To: phone, Channel: 'sms' }),
@@ -340,13 +344,12 @@ async function sendOtp(phone: string, _code: string) {
 }
 
 async function verifyOtp(phone: string, code: string) {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID ?? ''
-  const authToken = process.env.TWILIO_AUTH_TOKEN ?? ''
-  const verifySid = process.env.TWILIO_VERIFY_SERVICE_SID ?? ''
-  const twilioResponse = await fetch(`https://verify.twilio.com/v2/Services/${verifySid}/VerificationCheck`, {
+  const twilio = getTwilioVerifyConfig()
+  if (!twilio) return false
+  const twilioResponse = await fetch(`https://verify.twilio.com/v2/Services/${twilio.verifyServiceSid}/VerificationCheck`, {
     method: 'POST',
     headers: {
-      authorization: `Basic ${btoa(`${accountSid}:${authToken}`)}`,
+      authorization: twilioAuthorization(twilio),
       'content-type': 'application/x-www-form-urlencoded',
     },
     body: new URLSearchParams({ To: phone, Code: code }),
@@ -356,5 +359,17 @@ async function verifyOtp(phone: string, code: string) {
 }
 
 function hasTwilioVerify() {
-  return Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_VERIFY_SERVICE_SID)
+  return Boolean(getTwilioVerifyConfig())
+}
+
+function getTwilioVerifyConfig(): TwilioVerifyConfig | undefined {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID
+  const authToken = process.env.TWILIO_AUTH_TOKEN
+  const verifyServiceSid = process.env.TWILIO_VERIFY_SERVICE_SID_ABBY ?? process.env.TWILIO_VERIFY_SERVICE_SID
+  if (!accountSid || !authToken || !verifyServiceSid) return undefined
+  return { accountSid, authToken, verifyServiceSid }
+}
+
+function twilioAuthorization(config: TwilioVerifyConfig): string {
+  return `Basic ${btoa(`${config.accountSid}:${config.authToken}`)}`
 }
