@@ -25,9 +25,10 @@ npm run dev
 
 Open `http://127.0.0.1:5173/`.
 
-Use `vercel dev` instead of the Vite-only command when testing the complete
-patient flow locally, because OTP, Claude, and LiveKit token routes run as
-Vercel Functions.
+`npm run dev` starts the complete web/API flow locally. The Vite development
+server includes a local adapter for the Vercel API functions; `vercel dev`
+remains an option when you are logged into Vercel and want production-parity
+routing.
 
 The provider portal remains at `/`. The new standalone patient experience is
 available at:
