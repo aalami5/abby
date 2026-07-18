@@ -134,15 +134,24 @@ export async function buildPatientPlan(careId: string): Promise<PatientPlan> {
 }
 
 export function patientPhoneHint(careId: string): string {
+  const configured = configuredDemoPhone(careId)
+  if (configured) return `••• ••• ${configured.slice(-4)}`
   const record = resolveRecord(careId)
   const index = records.findIndex((item) => item.id === record.id)
   return `••• ••• ${String(index + 1).padStart(4, '0')}`
 }
 
 export function expectedPatientPhone(careId: string): string {
+  const configured = configuredDemoPhone(careId)
+  if (configured) return configured
   const record = resolveRecord(careId)
   const index = records.findIndex((item) => item.id === record.id)
   return `+1555012${String(index + 1).padStart(4, '0')}`
+}
+
+function configuredDemoPhone(careId: string): string {
+  if (careId !== 'demo-cardiovascular') return ''
+  return normalizePhone(process.env.ABBY_DEMO_PATIENT_PHONE)
 }
 
 export function normalizePhone(value: unknown): string {

@@ -14,6 +14,7 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
       care_link_not_found: 'This care link is no longer available.',
       phone_does_not_match_care_link: 'That phone number does not match this private care link.',
       invalid_or_expired_code: 'That code is incorrect or has expired. Please request a new one.',
+      demo_phone_not_configured: 'Real SMS is ready, but this demo link still needs its private test phone number.',
       patient_session_expired: 'For your privacy, please verify your phone again.',
       claude_not_configured: 'Abby is not available yet. Please try again shortly.',
       livekit_not_configured: 'Realtime voice is being connected. You can continue by text.',

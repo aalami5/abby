@@ -10,7 +10,7 @@ export function PatientApp({ careId }: { careId: string }) {
   const [bootstrap, setBootstrap] = useState<PatientBootstrap>()
   const [token, setToken] = useState(() => window.sessionStorage.getItem(`abby.patient.${careId}`) ?? '')
   const [plan, setPlan] = useState<PatientPlan>()
-  const [phone, setPhone] = useState(careId === 'demo-cardiovascular' ? '+1 555 012 0011' : '')
+  const [phone, setPhone] = useState('')
   const [code, setCode] = useState('')
   const [demoCode, setDemoCode] = useState('')
   const [otpSent, setOtpSent] = useState(false)
@@ -18,7 +18,12 @@ export function PatientApp({ careId }: { careId: string }) {
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    loadPatientBootstrap(careId).then(setBootstrap).catch((caught: unknown) => setError(messageOf(caught)))
+    loadPatientBootstrap(careId)
+      .then((result) => {
+        setBootstrap(result)
+        if (result.verificationMode === 'demo' && careId === 'demo-cardiovascular') setPhone('+1 555 012 0011')
+      })
+      .catch((caught: unknown) => setError(messageOf(caught)))
   }, [careId])
 
   useEffect(() => {
