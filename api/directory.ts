@@ -355,6 +355,7 @@ function oliverAdmin(): DirectoryPerson {
     phone: '+16503153236',
     roles: ['admin', 'provider', 'patient'],
     specialty: 'Vascular Surgery',
+    primaryProviderId: 'person-oliver-aalami',
     abbyInstructionsTitle: 'Abby App Instructions',
     abbyInstructionsSourceFile: 'ABBY_INSTRUCTIONS.md',
     abbyInstructionsSourcePath: '/ABBY_INSTRUCTIONS.md',
