@@ -1119,6 +1119,34 @@ function maskedPhone(phone: string): string {
   return lastFour ? `***-***-${lastFour}` : 'the phone on file'
 }
 
+function invalidSmsDestinationReason(phone: string): string {
+  const normalized = normalizePhoneForSms(phone)
+  if (!/^\+\d{10,15}$/.test(normalized)) return 'Enter a valid cell phone number before starting check-in.'
+
+  const digits = normalized.slice(1)
+  if (!digits.startsWith('1') || digits.length !== 11) return ''
+
+  const areaCode = digits.slice(1, 4)
+  const exchange = digits.slice(4, 7)
+  const lineNumber = digits.slice(7)
+  if (/^[01]/.test(areaCode) || /^[01]/.test(exchange)) {
+    return 'Enter a valid US cell phone number before starting check-in.'
+  }
+  if (areaCode === '555' || (exchange === '555' && /^01\d\d$/.test(lineNumber))) {
+    return 'The seeded 555 demo number cannot receive texts. Save the patient’s real cell phone, then start check-in.'
+  }
+
+  return ''
+}
+
+function normalizePhoneForSms(phone: string): string {
+  const trimmed = phone.trim()
+  if (trimmed.startsWith('+')) return `+${trimmed.slice(1).replace(/\D/g, '')}`
+  const digits = trimmed.replace(/\D/g, '')
+  if (digits.length === 10) return `+1${digits}`
+  return digits ? `+${digits}` : ''
+}
+
 function hasDirectoryRole(person: DirectoryPerson, role: DirectoryRole): boolean {
   if (role === 'admin') return person.roles.some((personRole) => ['admin', 'superadmin'].includes(String(personRole)))
   return person.roles.includes(role)
@@ -1274,6 +1302,13 @@ function ProviderView({
     setPreVisitStatusByPatient((current) => ({ ...current, [patient.id]: 'Sending check-in...' }))
     try {
       const savedPatient = await persistPatientPhone(patient)
+      const invalidDestination = invalidSmsDestinationReason(savedPatient.phone)
+      if (invalidDestination) {
+        setPreVisitStatusByPatient((current) => ({ ...current, [patient.id]: invalidDestination }))
+        setCheckInNotice('Check-in needs a real cell phone')
+        return
+      }
+
       const result = await sendPatientCheckIn({ patient: savedPatient, provider: selectedProvider })
       const failed = result.mode === 'twilio' && ['failed', 'undelivered'].includes(result.status)
       const status = result.mode === 'twilio'

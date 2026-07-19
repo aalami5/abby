@@ -44,6 +44,18 @@ export default async function handler(request: VercelRequest, response: VercelRe
   try {
     const body = normalizeCheckIn(parseBody(request.body))
     const message = buildCheckInMessage(body)
+    const invalidDestination = invalidSmsDestinationReason(body.patientPhone)
+    if (invalidDestination) {
+      response.status(200).json({
+        mode: 'twilio',
+        status: 'failed',
+        message,
+        twilioErrorCode: 400,
+        twilioErrorMessage: invalidDestination,
+      })
+      return
+    }
+
     const twilio = getTwilioMessagingConfig()
 
     if (!twilio) {
@@ -165,6 +177,25 @@ function normalizePhone(value: unknown): string {
   const digits = trimmed.replace(/\D/g, '')
   if (digits.length === 10) return `+1${digits}`
   return digits ? `+${digits}` : ''
+}
+
+function invalidSmsDestinationReason(phone: string): string {
+  if (!/^\+\d{10,15}$/.test(phone)) return 'Enter a valid cell phone number before starting check-in.'
+
+  const digits = phone.slice(1)
+  if (!digits.startsWith('1') || digits.length !== 11) return ''
+
+  const areaCode = digits.slice(1, 4)
+  const exchange = digits.slice(4, 7)
+  const lineNumber = digits.slice(7)
+  if (/^[01]/.test(areaCode) || /^[01]/.test(exchange)) {
+    return 'Enter a valid US cell phone number before starting check-in.'
+  }
+  if (areaCode === '555' || (exchange === '555' && /^01\d\d$/.test(lineNumber))) {
+    return 'The seeded 555 demo number cannot receive texts. Save the patient’s real cell phone, then start check-in.'
+  }
+
+  return ''
 }
 
 function getTwilioMessagingConfig(): TwilioMessagingConfig | undefined {
