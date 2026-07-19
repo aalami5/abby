@@ -111,9 +111,9 @@ export default async function handler(request: VercelRequest, response: VercelRe
         const phone = normalizePhone(body.phone)
         const code = typeof body.code === 'string' ? body.code.trim() : ''
         const challenge = current.otp[phone]
-        const verified = hasTwilioVerify()
+        const verified = otpMode() === 'twilio-verify'
           ? await verifyOtp(phone, code)
-          : Boolean(challenge && challenge.code === code && new Date(challenge.expiresAt).getTime() >= Date.now())
+          : isStoredOtpValid(challenge, code)
         if (!verified) {
           response.status(401).json({ error: 'Invalid or expired code' })
           return
@@ -159,7 +159,7 @@ function toResponse(current: DirectoryStore) {
   return {
     service: 'abby',
     persistence: googlePersistenceLabel(),
-    auth: hasTwilioVerify() ? 'twilio-verify' : hasTwilioMessaging() ? 'twilio-sms' : 'mock-otp',
+    auth: otpMode() === 'twilio-verify' ? 'twilio-verify' : otpMode() === 'twilio-sms' ? 'twilio-sms' : 'mock-otp',
     people,
     agentInstructionReferences: current.agentInstructionReferences ?? seedAgentInstructionReferences(),
     counts: {
@@ -436,11 +436,12 @@ function syntheticPhone(index: number): string {
 }
 
 async function sendOtp(phone: string, code: string) {
-  const twilio = getTwilioVerifyConfig()
-  if (!twilio) {
+  if (hasTwilioMessaging()) {
     await sendOtpWithMessaging(phone, code)
     return
   }
+  const twilio = getTwilioVerifyConfig()
+  if (!twilio) return
   const twilioResponse = await fetch(`https://verify.twilio.com/v2/Services/${twilio.verifyServiceSid}/Verifications`, {
     method: 'POST',
     headers: {
@@ -485,6 +486,10 @@ async function verifyOtp(phone: string, code: string) {
   return twilioResponse.ok && payload.status === 'approved'
 }
 
+function isStoredOtpValid(challenge: DirectoryStore['otp'][string] | undefined, code: string) {
+  return Boolean(challenge && challenge.code === code && new Date(challenge.expiresAt).getTime() >= Date.now())
+}
+
 function hasTwilioVerify() {
   return Boolean(getTwilioVerifyConfig())
 }
@@ -498,8 +503,8 @@ function hasTwilioOtp() {
 }
 
 function otpMode(): 'twilio-verify' | 'twilio-sms' | 'mock' {
-  if (hasTwilioVerify()) return 'twilio-verify'
   if (hasTwilioMessaging()) return 'twilio-sms'
+  if (hasTwilioVerify()) return 'twilio-verify'
   return 'mock'
 }
 

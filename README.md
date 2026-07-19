@@ -106,7 +106,7 @@ TWILIO_AUTH_TOKEN
 TWILIO_VERIFY_SERVICE_SID_ABBY
 ```
 
-`TWILIO_VERIFY_SERVICE_SID` is also accepted as a fallback. If no Verify service SID is configured, Abby can send the 2FA code through the configured Twilio Messaging sender instead.
+`TWILIO_VERIFY_SERVICE_SID` is also accepted as a fallback. Abby prefers the configured Twilio Messaging sender for OTP when available so the verification text can use Abby-branded copy; Twilio Verify is used only when Messaging is not configured.
 
 Optional Twilio check-in SMS env vars:
 
