@@ -602,6 +602,7 @@ function AdminView({
   const [patientSaveNotice, setPatientSaveNotice] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [isPatientSaving, setIsPatientSaving] = useState(false)
+  const [assigningPatientIds, setAssigningPatientIds] = useState<Record<string, boolean>>({})
   const patients = directory.people.filter((person) => person.roles.includes('patient'))
   const providers = directory.people.filter((person) => person.roles.includes('provider'))
   const activeFilter = directoryFilterOptions.find((option) => option.value === userFilter) ?? directoryFilterOptions[0]
@@ -706,6 +707,28 @@ function AdminView({
     }
   }
 
+  const assignPatientProvider = async (patient: DirectoryPerson, primaryProviderId: string) => {
+    setAssigningPatientIds((current) => ({ ...current, [patient.id]: true }))
+    try {
+      const nextDirectory = await saveDirectoryPerson({
+        ...patient,
+        primaryProviderId,
+      })
+      onDirectoryChange(nextDirectory)
+      const savedPatient = nextDirectory.people.find((person) => person.id === patient.id)
+      if (savedPatient && selectedPatientId === patient.id) {
+        setPatientForm(personToPatientForm(savedPatient))
+      }
+      const providerName = nextDirectory.people.find((person) => person.id === primaryProviderId)?.name ?? 'Unassigned'
+      setPatientMessage(`${patient.name} assigned to ${providerName}`)
+      setPatientSaveNotice(`${patient.name} assigned`)
+    } catch (error) {
+      setPatientMessage(error instanceof Error ? error.message : String(error))
+    } finally {
+      setAssigningPatientIds((current) => ({ ...current, [patient.id]: false }))
+    }
+  }
+
   return (
     <section className="content-grid admin-clean-grid">
       {patientSaveNotice && <SaveNotice message={patientSaveNotice} />}
@@ -775,6 +798,9 @@ function AdminView({
             eyebrow="Patients"
             title={`${patients.length} patients`}
             ariaLabel="Patients"
+            providers={providers}
+            assigningPatientIds={assigningPatientIds}
+            onAssignProvider={assignPatientProvider}
             onEdit={selectPatient}
             onOpenPatient={onOpenPatient}
             selectedUserId={selectedPatient?.id}
@@ -852,6 +878,9 @@ function UserRoster({
   onOpenPatient,
   selectedUserId,
   onSelect,
+  providers = [],
+  assigningPatientIds = {},
+  onAssignProvider,
 }: {
   users: DirectoryPerson[]
   eyebrow: string
@@ -865,6 +894,9 @@ function UserRoster({
   onOpenPatient: (recordId: string) => void
   selectedUserId?: string
   onSelect?: (person: DirectoryPerson) => void
+  providers?: DirectoryPerson[]
+  assigningPatientIds?: Record<string, boolean>
+  onAssignProvider?: (person: DirectoryPerson, primaryProviderId: string) => void
 }) {
   return (
     <div className="panel patient-roster">
@@ -934,6 +966,22 @@ function UserRoster({
                   : user.specialty ?? 'Manual directory entry'}
               </span>
               <div className="patient-actions">
+                {user.roles.includes('patient') && providers.length > 0 && onAssignProvider && (
+                  <label className="inline-provider-select">
+                    <span>Assigned provider</span>
+                    <select
+                      value={user.primaryProviderId ?? ''}
+                      onChange={(event) => onAssignProvider(user, event.target.value)}
+                      disabled={assigningPatientIds[user.id]}
+                      aria-label={`Assigned provider for ${user.name}`}
+                    >
+                      <option value="">Unassigned</option>
+                      {providers.map((provider) => (
+                        <option key={provider.id} value={provider.id}>{provider.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
                 {user.sourceRecordId && (
                   <button type="button" className="quiet-button" onClick={() => onOpenPatient(user.sourceRecordId ?? '')}>
                     Open
@@ -1041,7 +1089,7 @@ function PatientDetailPanel({
           <input value={form.visitTitle} onChange={(event) => onFormChange({ ...form, visitTitle: event.target.value })} />
         </label>
         <label className="wide-field">
-          <span>Primary provider</span>
+          <span>Assigned provider</span>
           <select value={form.primaryProviderId} onChange={(event) => onFormChange({ ...form, primaryProviderId: event.target.value })}>
             <option value="">Unassigned</option>
             {providers.map((provider) => (

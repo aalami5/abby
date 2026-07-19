@@ -1532,7 +1532,7 @@ textarea {
 .patient-table-head,
 .patient-table-row {
   display: grid;
-  grid-template-columns: minmax(150px, 1fr) 86px 118px minmax(130px, 1fr) 104px;
+  grid-template-columns: minmax(150px, 1fr) 86px 118px minmax(130px, 1fr) minmax(168px, 220px);
   align-items: center;
   gap: 12px;
   padding: 12px;
@@ -1619,6 +1619,23 @@ textarea {
 .patient-actions {
   display: grid;
   gap: 6px;
+}
+
+.inline-provider-select {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.inline-provider-select select {
+  min-height: 36px;
+  padding: 6px 8px;
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: none;
 }
 
 .empty-roster {
