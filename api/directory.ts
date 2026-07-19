@@ -129,7 +129,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
       if (existingIndex >= 0) current.people[existingIndex] = { ...current.people[existingIndex], ...person, updatedAt: new Date().toISOString() }
       else current.people.unshift(person)
       await writeStore(current)
-      response.status(200).json(toResponse(store))
+      response.status(200).json(toResponse(current))
       return
     }
 
@@ -140,7 +140,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
       const before = current.people.length
       current.people = current.people.filter((person) => person.id !== id && person.phone !== phone)
       await writeStore(current)
-      response.status(200).json({ ...toResponse(store), removed: before - current.people.length })
+      response.status(200).json({ ...toResponse(current), removed: before - current.people.length })
       return
     }
 
