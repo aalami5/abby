@@ -95,9 +95,9 @@ export default async function handler(request: VercelRequest, response: VercelRe
         const code = String(Math.floor(100000 + Math.random() * 900000))
         current.otp[phone] = { code, expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString() }
         await sendOtp(phone, code)
-        await writeStore(current)
+        const normalized = await writeStore(current)
         response.status(200).json({
-          ...toResponse(current),
+          ...toResponse(normalized),
           otp: {
             mode: otpMode(),
             phone,
@@ -119,8 +119,8 @@ export default async function handler(request: VercelRequest, response: VercelRe
           return
         }
         if (challenge) challenge.verifiedAt = new Date().toISOString()
-        await writeStore(current)
-        response.status(200).json({ ...toResponse(current), session: { phone, roles: current.people.find((person) => person.phone === phone)?.roles ?? [] } })
+        const normalized = await writeStore(current)
+        response.status(200).json({ ...toResponse(normalized), session: { phone, roles: normalized.people.find((person) => person.phone === phone)?.roles ?? [] } })
         return
       }
 
@@ -128,8 +128,8 @@ export default async function handler(request: VercelRequest, response: VercelRe
       const existingIndex = current.people.findIndex((item) => isSameDirectoryPerson(item, person))
       if (existingIndex >= 0) current.people[existingIndex] = { ...current.people[existingIndex], ...person, updatedAt: new Date().toISOString() }
       else current.people.unshift(person)
-      await writeStore(current)
-      response.status(200).json(toResponse(current))
+      const normalized = await writeStore(current)
+      response.status(200).json(toResponse(normalized))
       return
     }
 
@@ -139,8 +139,8 @@ export default async function handler(request: VercelRequest, response: VercelRe
       const phone = normalizePhone(body.phone)
       const before = current.people.length
       current.people = current.people.filter((person) => person.id !== id && person.phone !== phone)
-      await writeStore(current)
-      response.status(200).json({ ...toResponse(current), removed: before - current.people.length })
+      const normalized = await writeStore(current)
+      response.status(200).json({ ...toResponse(normalized), removed: before - normalized.people.length })
       return
     }
 
@@ -232,6 +232,11 @@ function normalizeRoles(value: unknown): Role[] {
   return [...new Set(value.filter((role): role is Role => typeof role === 'string' && allowed.has(role as Role)).map((role) => role === 'superadmin' ? 'admin' : role))]
 }
 
+function mergeSeedRoles(seedRoles: Role[], existingRoles: Role[]): Role[] {
+  const normalizedExisting = normalizeRoles(existingRoles)
+  return [...new Set([...seedRoles, ...normalizedExisting])]
+}
+
 function normalizePhone(value: unknown): string {
   if (typeof value !== 'string') return ''
   const trimmed = value.trim()
@@ -257,12 +262,13 @@ async function readStore(): Promise<DirectoryStore> {
   return normalized
 }
 
-async function writeStore(nextStore: DirectoryStore): Promise<void> {
+async function writeStore(nextStore: DirectoryStore): Promise<DirectoryStore> {
   const normalized = normalizeSeededStore(nextStore)
   store.people = normalized.people
   store.agentInstructionReferences = normalized.agentInstructionReferences
   store.otp = normalized.otp
   await writeGoogleJson(firestoreDocumentId, normalized)
+  return normalized
 }
 
 function normalizeSeededStore(current: DirectoryStore): DirectoryStore {
@@ -280,7 +286,7 @@ function normalizeSeededStore(current: DirectoryStore): DirectoryStore {
           ...seed,
           name: existing.name || seed.name,
           phone: existing.phone || seed.phone,
-          roles: existing.roles.length ? normalizeRoles(existing.roles) : seed.roles,
+          roles: mergeSeedRoles(seed.roles, existing.roles),
           specialty: existing.specialty,
           abbyInstructions: existing.abbyInstructions ?? seed.abbyInstructions,
           abbyInstructionsTitle: existing.abbyInstructionsTitle ?? seed.abbyInstructionsTitle,

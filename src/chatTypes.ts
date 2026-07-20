@@ -12,6 +12,8 @@ export type AbbyChatMessage = {
 export type AbbyChatContext = {
   patient: {
     id: string
+    directoryPersonId?: string
+    sourceRecordId?: string
     name: string
     age: number
     gender?: string
@@ -42,7 +44,7 @@ export function chatStorageKey(recordId: string): string {
   return `abby.chat.${recordId}`
 }
 
-export function buildChatContext(abbyCase: AbbyCase, provider?: DirectoryPerson): AbbyChatContext {
+export function buildChatContext(abbyCase: AbbyCase, provider?: DirectoryPerson, directoryPatient?: DirectoryPerson): AbbyChatContext {
   const address = abbyCase.record.patient_context.patient.address?.[0]
   const specialist = provider
     ? {
@@ -57,6 +59,8 @@ export function buildChatContext(abbyCase: AbbyCase, provider?: DirectoryPerson)
   return {
     patient: {
       id: abbyCase.record.metadata.patient_id,
+      directoryPersonId: directoryPatient?.id,
+      sourceRecordId: abbyCase.record.id,
       name: abbyCase.patientName,
       age: abbyCase.age,
       gender: abbyCase.record.patient_context.patient.gender,

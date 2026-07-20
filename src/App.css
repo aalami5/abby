@@ -1248,7 +1248,7 @@ meter {
 
 .patient-detail-workspace {
   display: grid;
-  grid-template-columns: minmax(420px, 1fr) 360px;
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: 18px;
   min-width: 0;
@@ -1529,6 +1529,11 @@ textarea {
   border-radius: 8px;
 }
 
+.patient-table.is-editing {
+  gap: 0;
+  background: #fffaf8;
+}
+
 .patient-table-head,
 .patient-table-row {
   display: grid;
@@ -1550,6 +1555,39 @@ textarea {
   min-height: 62px;
   background: rgba(255, 255, 255, 0.62);
   border-top: 1px solid #f7e5dd;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    opacity 180ms ease,
+    transform 180ms ease,
+    filter 180ms ease;
+}
+
+.patient-table-row.expanded {
+  position: relative;
+  z-index: 2;
+  margin: 8px;
+  border: 1px solid rgba(239, 37, 7, 0.24);
+  border-radius: 8px 8px 0 0;
+  background: #fff;
+  box-shadow: 0 18px 42px rgba(62, 35, 28, 0.16);
+  transform: translateY(-1px);
+}
+
+.patient-table-row.dimmed {
+  opacity: 0.34;
+  filter: saturate(0.55);
+  background: #fbf7f5;
+}
+
+.patient-table-row.dimmed .patient-actions,
+.patient-table-row.dimmed .inline-provider-select {
+  pointer-events: none;
+}
+
+.patient-table-row.dimmed:hover {
+  opacity: 0.54;
 }
 
 .patient-table-row > span,
@@ -1619,6 +1657,57 @@ textarea {
 .patient-actions {
   display: grid;
   gap: 6px;
+}
+
+.inline-patient-editor {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  gap: 12px;
+  margin: -8px 8px 12px;
+  padding: 16px;
+  border: 1px solid rgba(239, 37, 7, 0.24);
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
+  background: #fff;
+  box-shadow: 0 22px 46px rgba(62, 35, 28, 0.12);
+}
+
+.inline-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.inline-editor-grid label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.inline-editor-grid .wide-field {
+  grid-column: span 2;
+}
+
+.inline-editor-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.inline-editor-actions span {
+  margin-right: auto;
+  color: var(--abridge-dark);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.inline-editor-actions .quiet-button,
+.inline-editor-actions .edit-button {
+  min-width: 132px;
 }
 
 .inline-provider-select {
@@ -2331,6 +2420,23 @@ textarea {
 
   .patient-form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .inline-editor-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .inline-editor-grid .wide-field {
+    grid-column: auto;
+  }
+
+  .inline-editor-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .inline-editor-actions span {
+    margin-right: 0;
   }
 
   .directory-filter-bar {

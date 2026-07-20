@@ -63,7 +63,7 @@ https://abby-mocha.vercel.app/api/chat
 https://abby-mocha.vercel.app/api/check-in
 ```
 
-Run state uses the `/api/runs` lifecycle API. Admin, provider, patient, and OTP state use `/api/directory`. Patient chat uses `/api/chat`, which calls Claude server-side. Patient check-in texts use `/api/check-in`, which calls Twilio Messaging server-side when messaging credentials are configured and otherwise returns a demo not-sent response. The initial check-in SMS is intentionally warm and concise, uses the patient first name, and points record-backed patients to a verification URL such as `/?role=patient&verify=1&patient=<recordId>`; the chat view only opens after the patient enters the 2FA code sent to the phone number on file. In production, the APIs use Google Cloud Firestore when the Google service-account environment variables are configured; otherwise they fall back to serverless memory, which is enough to prove the flow but not durable across cold starts.
+Run state uses the `/api/runs` lifecycle API. Admin, provider, patient, provider specialty, provider Abby instructions, and OTP state use `/api/directory`. Patient chat uses `/api/chat`, which calls Claude server-side after resolving the patient's assigned provider and provider-specific Abby instructions from the Firestore-backed directory; the chat transcript and Abby reply are also saved to Firestore when Google persistence is configured. Patient check-in texts use `/api/check-in`, which calls Twilio Messaging server-side when messaging credentials are configured and otherwise returns a demo not-sent response. The initial check-in SMS is intentionally warm and concise, uses the patient first name, and points record-backed patients to a verification URL such as `/?role=patient&verify=1&patient=<recordId>`; the chat view only opens after the patient enters the 2FA code sent to the phone number on file. In production, the APIs use Google Cloud Firestore when the Google service-account environment variables are configured; otherwise they fall back to serverless memory, which is enough to prove the flow but not durable across cold starts.
 
 ## Data
 
@@ -118,3 +118,32 @@ TWILIO_FROM_NUMBER_ABBY
 ```
 
 `TWILIO_MESSAGING_SERVICE_SID` and `TWILIO_FROM_NUMBER` are also accepted as fallbacks. Provide either a Messaging Service SID or a From number.
+
+## Twilio Demo Setup
+
+For the hackathon demo, it is acceptable to reuse the BeamIt Twilio account credentials as long as they are copied into Abby's environment using Abby's variable names.
+
+Minimum real-SMS setup:
+
+```text
+TWILIO_ACCOUNT_SID=AC...
+TWILIO_AUTH_TOKEN=...
+TWILIO_MESSAGING_SERVICE_SID_ABBY=MG...
+```
+
+If there is no Messaging Service SID available, use a sender number instead:
+
+```text
+TWILIO_FROM_NUMBER_ABBY=+1...
+```
+
+With Messaging configured, Abby sends both the initial check-in invite and the one-time verification code through Twilio Messaging. With only `TWILIO_VERIFY_SERVICE_SID_ABBY` configured, Abby uses Twilio Verify for OTP but still needs Messaging or a sender number for the initial check-in text.
+
+Demo checklist:
+
+1. Set the Twilio variables in the Abby Vercel project for Production.
+2. Redeploy Abby after changing env vars.
+3. Open the provider role, save a real test cell phone for the selected patient, then click **Start check-in**.
+4. Open the SMS link and enter the code sent by Twilio.
+
+The seeded `+1555012...` demo numbers cannot receive SMS. If Twilio is not configured, Abby remains usable in mock mode and displays the demo verification code in the app.

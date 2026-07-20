@@ -1,3 +1,6 @@
+import { googlePersistenceLabel, readGoogleJson, writeGoogleJson } from './googleCloudStore.js'
+import records from '../public/data/synthetic-ambient-fhir-25.json' with { type: 'json' }
+
 type ChatSender = 'patient' | 'abby'
 
 type ChatMessage = {
@@ -10,6 +13,9 @@ type ChatMessage = {
 type ChatContext = {
   patient?: {
     name?: string
+    id?: string
+    directoryPersonId?: string
+    sourceRecordId?: string
     age?: number
     gender?: string
     city?: string
@@ -27,7 +33,39 @@ type ChatContext = {
   specialist?: {
     name?: string
     specialty?: string
+    abbyInstructions?: string
   }
+}
+
+type DirectoryPerson = {
+  id: string
+  name: string
+  phone: string
+  roles: Array<'admin' | 'superadmin' | 'provider' | 'patient'>
+  specialty?: string
+  abbyInstructions?: string
+  primaryProviderId?: string
+  sourceRecordId?: string
+  createdAt: string
+  updatedAt: string
+}
+
+type DirectoryStore = {
+  people: DirectoryPerson[]
+  agentInstructionReferences?: unknown[]
+  otp?: Record<string, unknown>
+}
+
+type ChatHistoryStore = {
+  conversations: Record<string, {
+    patientPersonId?: string
+    patientSourceRecordId?: string
+    providerPersonId?: string
+    providerName?: string
+    specialty?: string
+    messages: ChatMessage[]
+    updatedAt: string
+  }>
 }
 
 type VercelRequest = {
@@ -45,6 +83,9 @@ declare const process: {
 
 const anthropicVersion = '2023-06-01'
 const defaultModel = 'claude-sonnet-5'
+const directoryDocumentId = 'directory-v1'
+const patientChatDocumentId = 'patient-chat-v1'
+const seededAt = '2026-07-18T19:30:00Z'
 
 export default async function handler(request: VercelRequest, response: VercelResponse) {
   if (request.method !== 'POST') {
@@ -60,12 +101,15 @@ export default async function handler(request: VercelRequest, response: VercelRe
       return
     }
 
-    const context = normalizeContext(body.context)
+    const context = await resolveServerContext(normalizeContext(body.context))
     const apiKey = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY
     if (!apiKey) {
+      const message = fallbackCheckInReply(context)
+      await writeChatHistory(context, [...messages, message])
       response.status(200).json({
-        message: fallbackCheckInReply(context),
+        message,
         model: 'abby-fallback',
+        persistence: googlePersistenceLabel(),
       })
       return
     }
@@ -105,18 +149,79 @@ export default async function handler(request: VercelRequest, response: VercelRe
       return
     }
 
+    const message = {
+      id: `abby-${Date.now()}`,
+      sender: 'abby' as const,
+      content: text,
+      timestamp: new Date().toISOString(),
+    }
+    await writeChatHistory(context, [...messages, message])
+
     response.status(200).json({
-      message: {
-        id: `abby-${Date.now()}`,
-        sender: 'abby',
-        content: text,
-        timestamp: new Date().toISOString(),
-      },
+      message,
       model: payload.model ?? process.env.ABBY_CLAUDE_MODEL ?? defaultModel,
+      persistence: googlePersistenceLabel(),
     })
   } catch (error) {
     response.status(400).json({ error: error instanceof Error ? error.message : String(error) })
   }
+}
+
+async function resolveServerContext(context: ChatContext): Promise<ChatContext> {
+  const directory = await readGoogleJson(directoryDocumentId, seedDirectoryStore())
+  const patient = findDirectoryPatient(directory.people, context)
+  const provider = findDirectoryProvider(directory.people, patient, context)
+  if (!provider) return context
+  return {
+    ...context,
+    patient: {
+      ...context.patient,
+      directoryPersonId: patient?.id ?? context.patient?.directoryPersonId,
+      sourceRecordId: patient?.sourceRecordId ?? context.patient?.sourceRecordId,
+    },
+    specialist: {
+      name: provider.name,
+      specialty: provider.specialty || context.specialist?.specialty || 'care',
+      abbyInstructions: provider.abbyInstructions,
+    },
+  }
+}
+
+function findDirectoryPatient(people: DirectoryPerson[], context: ChatContext): DirectoryPerson | undefined {
+  const patient = context.patient
+  if (!patient) return undefined
+  return people.find((person) => (
+    person.roles.includes('patient') && (
+      person.id === patient.directoryPersonId ||
+      person.sourceRecordId === patient.sourceRecordId ||
+      person.id === `patient-${patient.id}` ||
+      normalizeName(person.name) === normalizeName(patient.name ?? '')
+    )
+  ))
+}
+
+function findDirectoryProvider(people: DirectoryPerson[], patient: DirectoryPerson | undefined, context: ChatContext): DirectoryPerson | undefined {
+  return (
+    people.find((person) => person.id === patient?.primaryProviderId && person.roles.includes('provider')) ||
+    people.find((person) => person.roles.includes('provider') && normalizeName(person.name) === normalizeName(context.specialist?.name ?? '')) ||
+    people.find((person) => person.roles.includes('provider'))
+  )
+}
+
+async function writeChatHistory(context: ChatContext, messages: ChatMessage[]) {
+  const patient = context.patient
+  const key = patient?.sourceRecordId || patient?.directoryPersonId || patient?.id
+  if (!key) return
+  const current = await readGoogleJson<ChatHistoryStore>(patientChatDocumentId, { conversations: {} })
+  current.conversations[key] = {
+    patientPersonId: patient.directoryPersonId,
+    patientSourceRecordId: patient.sourceRecordId,
+    providerName: context.specialist?.name,
+    specialty: context.specialist?.specialty,
+    messages: messages.slice(-64),
+    updatedAt: new Date().toISOString(),
+  }
+  await writeGoogleJson(patientChatDocumentId, current)
 }
 
 function fallbackCheckInReply(context: ChatContext): ChatMessage & { id: string; timestamp: string } {
@@ -142,6 +247,7 @@ function buildSystemPrompt(context: ChatContext): string {
   return [
     'You are Abby, a patient-facing clinical follow-up assistant.',
     `You act on behalf of ${specialist.name || 'the patient\'s specialist'}${specialist.specialty ? ` in ${specialist.specialty}` : ''}.`,
+    specialist.abbyInstructions ? `Follow these provider-specific Abby instructions from the Firestore directory:\n${specialist.abbyInstructions}` : '',
     'Be supportive, concise, and concrete. Use plain language. Ask at most one focused follow-up question when needed.',
     'Do not diagnose, prescribe, change medications, or claim clinician review has happened. Stay within the specialist and chart context provided.',
     'If the patient reports urgent symptoms such as chest pain, trouble breathing, severe weakness, fainting, stroke symptoms, severe bleeding, suicidal thoughts, or rapidly worsening symptoms, tell them to seek emergency care now or call local emergency services, and to contact their specialist.',
@@ -190,4 +296,71 @@ function normalizeMessages(value: unknown): ChatMessage[] {
 function normalizeContext(value: unknown): ChatContext {
   if (!value || typeof value !== 'object') return {}
   return value as ChatContext
+}
+
+function seedDirectoryStore(): DirectoryStore {
+  return { people: [oliverAdmin(), ...syntheticPatients()], agentInstructionReferences: [], otp: {} }
+}
+
+function oliverAdmin(): DirectoryPerson {
+  return {
+    id: 'person-oliver-aalami',
+    name: 'Oliver Aalami',
+    phone: '+16503153236',
+    roles: ['admin', 'provider', 'patient'],
+    specialty: 'Vascular Surgery',
+    primaryProviderId: 'person-oliver-aalami',
+    abbyInstructions: [
+      '# Abby App Instructions',
+      '',
+      'Provider: Dr. Oliver Aalami',
+      'Specialty: Vascular Surgery',
+      '',
+      'Use a vascular-surgery lens for patient outreach and provider briefs.',
+      'Prioritize cardiovascular risk, limb symptoms, wound status, medication adherence, and urgent red flags.',
+      'Keep patient-facing language concise, calm, and action-oriented.',
+    ].join('\n'),
+    createdAt: seededAt,
+    updatedAt: seededAt,
+  }
+}
+
+function syntheticPatients(): DirectoryPerson[] {
+  return (records as Array<{
+    id: string
+    metadata: { patient_id: string; visit_title: string }
+    patient_context: {
+      longitudinal_summary?: { condition_labels?: string[] }
+      patient: { name?: Array<{ family?: string; given?: string[] }> }
+    }
+  }>).map((record, index) => ({
+    id: `patient-${record.metadata.patient_id}`,
+    name: patientName(record.patient_context.patient),
+    phone: `+1555012${String(index + 1).padStart(4, '0')}`,
+    roles: ['patient'],
+    primaryProviderId: isCardiovascularPatient(record) ? 'person-oliver-aalami' : undefined,
+    sourceRecordId: record.id,
+    createdAt: seededAt,
+    updatedAt: seededAt,
+  }))
+}
+
+function isCardiovascularPatient(record: {
+  metadata: { visit_title: string }
+  patient_context: { longitudinal_summary?: { condition_labels?: string[] } }
+}): boolean {
+  const searchable = [
+    record.metadata.visit_title,
+    ...(record.patient_context.longitudinal_summary?.condition_labels ?? []),
+  ].join(' ')
+  return /\b(cardiovascular|cardiac|cardio|heart|coronary|ischemic|myocardial|infarction|hypertension|hyperlipidemia|vascular|stroke|angina|atrial|metabolic syndrome)\b/i.test(searchable)
+}
+
+function patientName(patient: { name?: Array<{ family?: string; given?: string[] }> }): string {
+  const official = patient.name?.[0]
+  return [official?.given?.[0], official?.family].filter(Boolean).join(' ') || 'Synthetic patient'
+}
+
+function normalizeName(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, ' ')
 }

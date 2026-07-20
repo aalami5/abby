@@ -1,4 +1,4 @@
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, type FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import {
   CalendarCheck,
   Check,
@@ -396,7 +396,16 @@ function PatientVerificationGate({
     try {
       const nextDirectory = await sendDirectoryOtp(patient.phone)
       onDirectoryChange(nextDirectory)
-      setStatus(`Verification code sent to ${maskedPhone(patient.phone)}.`)
+      const otp = nextDirectory.otp
+      if (otp?.demoCode) {
+        setStatus(`Demo code ${otp.demoCode} for ${maskedPhone(patient.phone)}.`)
+      } else if (otp?.mode === 'twilio-verify') {
+        setStatus(`Twilio Verify sent a code to ${maskedPhone(patient.phone)}.`)
+      } else if (otp?.mode === 'twilio-sms') {
+        setStatus(`Twilio SMS sent a code to ${maskedPhone(patient.phone)}.`)
+      } else {
+        setStatus(`Verification code sent to ${maskedPhone(patient.phone)}.`)
+      }
     } catch (error) {
       setStatus(error instanceof Error ? error.message : String(error))
     } finally {
@@ -602,12 +611,11 @@ function AdminView({
   const [patientSaveNotice, setPatientSaveNotice] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [isPatientSaving, setIsPatientSaving] = useState(false)
-  const [assigningPatientIds, setAssigningPatientIds] = useState<Record<string, boolean>>({})
   const patients = directory.people.filter((person) => person.roles.includes('patient'))
   const providers = directory.people.filter((person) => person.roles.includes('provider'))
   const activeFilter = directoryFilterOptions.find((option) => option.value === userFilter) ?? directoryFilterOptions[0]
   const filteredUsers = directory.people.filter((person) => hasDirectoryRole(person, activeFilter.role))
-  const selectedPatient = patients.find((patient) => patient.id === selectedPatientId) ?? patients[0]
+  const selectedPatient = patients.find((patient) => patient.id === selectedPatientId)
   const isEditing = Boolean(form.id)
 
   useEffect(() => {
@@ -694,38 +702,22 @@ function AdminView({
       })
       onDirectoryChange(nextDirectory)
       const savedPatient = nextDirectory.people.find((person) => person.id === patientForm.id)
+      const submittedPhone = normalizePhoneForSms(patientForm.phone)
+      const savedPhone = normalizePhoneForSms(savedPatient?.phone ?? '')
+      if (!savedPatient || savedPhone !== submittedPhone) {
+        setPatientMessage(`Save did not persist. Abby returned ${savedPatient?.phone || 'no phone'} instead of ${submittedPhone}.`)
+        return
+      }
       if (savedPatient) {
-        setSelectedPatientId(savedPatient.id)
         setPatientForm(personToPatientForm(savedPatient))
       }
+      setSelectedPatientId('')
       setPatientMessage(`${savedPatient?.name ?? patientForm.name} saved`)
       setPatientSaveNotice(`${savedPatient?.name ?? patientForm.name} saved`)
     } catch (error) {
       setPatientMessage(error instanceof Error ? error.message : String(error))
     } finally {
       setIsPatientSaving(false)
-    }
-  }
-
-  const assignPatientProvider = async (patient: DirectoryPerson, primaryProviderId: string) => {
-    setAssigningPatientIds((current) => ({ ...current, [patient.id]: true }))
-    try {
-      const nextDirectory = await saveDirectoryPerson({
-        ...patient,
-        primaryProviderId,
-      })
-      onDirectoryChange(nextDirectory)
-      const savedPatient = nextDirectory.people.find((person) => person.id === patient.id)
-      if (savedPatient && selectedPatientId === patient.id) {
-        setPatientForm(personToPatientForm(savedPatient))
-      }
-      const providerName = nextDirectory.people.find((person) => person.id === primaryProviderId)?.name ?? 'Unassigned'
-      setPatientMessage(`${patient.name} assigned to ${providerName}`)
-      setPatientSaveNotice(`${patient.name} assigned`)
-    } catch (error) {
-      setPatientMessage(error instanceof Error ? error.message : String(error))
-    } finally {
-      setAssigningPatientIds((current) => ({ ...current, [patient.id]: false }))
     }
   }
 
@@ -799,22 +791,18 @@ function AdminView({
             title={`${patients.length} patients`}
             ariaLabel="Patients"
             providers={providers}
-            assigningPatientIds={assigningPatientIds}
-            onAssignProvider={assignPatientProvider}
             onEdit={selectPatient}
             onOpenPatient={onOpenPatient}
-            selectedUserId={selectedPatient?.id}
-            onSelect={selectPatient}
-          />
-          <PatientDetailPanel
-            patient={selectedPatient}
-            providers={providers}
-            form={patientForm}
-            message={patientMessage}
-            isSaving={isPatientSaving}
-            onFormChange={setPatientForm}
-            onSubmit={saveSelectedPatient}
-            onOpenPatient={onOpenPatient}
+            selectedUserId={selectedPatientId}
+            inlineEditForm={patientForm}
+            inlineEditMessage={patientMessage}
+            isInlineEditSaving={isPatientSaving}
+            onInlineEditFormChange={setPatientForm}
+            onInlineEditSubmit={saveSelectedPatient}
+            onCancelInlineEdit={() => {
+              setSelectedPatientId('')
+              setPatientMessage('')
+            }}
           />
         </div>
       )}
@@ -881,6 +869,12 @@ function UserRoster({
   providers = [],
   assigningPatientIds = {},
   onAssignProvider,
+  inlineEditForm,
+  inlineEditMessage,
+  isInlineEditSaving = false,
+  onInlineEditFormChange,
+  onInlineEditSubmit,
+  onCancelInlineEdit,
 }: {
   users: DirectoryPerson[]
   eyebrow: string
@@ -897,7 +891,15 @@ function UserRoster({
   providers?: DirectoryPerson[]
   assigningPatientIds?: Record<string, boolean>
   onAssignProvider?: (person: DirectoryPerson, primaryProviderId: string) => void
+  inlineEditForm?: PatientFormState
+  inlineEditMessage?: string
+  isInlineEditSaving?: boolean
+  onInlineEditFormChange?: (form: PatientFormState) => void
+  onInlineEditSubmit?: (event: FormEvent<HTMLFormElement>) => void
+  onCancelInlineEdit?: () => void
 }) {
+  const hasInlineEdit = Boolean(selectedUserId && inlineEditForm && onInlineEditFormChange && onInlineEditSubmit)
+
   return (
     <div className="panel patient-roster">
       <div className="panel-title-row">
@@ -929,7 +931,7 @@ function UserRoster({
           })}
         </div>
       )}
-      <div className="patient-table" role="table" aria-label={ariaLabel}>
+      <div className={`patient-table ${hasInlineEdit ? 'is-editing' : ''}`} role="table" aria-label={ariaLabel}>
         <div className="patient-table-head" role="row">
           <span>Name</span>
           <span>Role</span>
@@ -938,8 +940,10 @@ function UserRoster({
           <span>Action</span>
         </div>
         {users.map((user) => {
+          const isInlineEditing = selectedUserId === user.id && inlineEditForm && onInlineEditFormChange && onInlineEditSubmit
           return (
-            <div className="patient-table-row" role="row" key={user.id}>
+            <Fragment key={user.id}>
+            <div className={`patient-table-row ${isInlineEditing ? 'expanded' : hasInlineEdit ? 'dimmed' : ''}`} role="row">
               {onSelect ? (
                 <button
                   type="button"
@@ -988,10 +992,67 @@ function UserRoster({
                   </button>
                 )}
                 <button type="button" className="edit-button" onClick={() => onEdit(user)}>
-                  <Pencil size={15} /> Edit
+                  <Pencil size={15} /> {isInlineEditing ? 'Editing' : 'Edit'}
                 </button>
               </div>
             </div>
+            {isInlineEditing && (
+              <form className="inline-patient-editor" onSubmit={onInlineEditSubmit}>
+                <div className="inline-editor-grid">
+                  <label>
+                    <span>Name</span>
+                    <input value={inlineEditForm.name} onChange={(event) => onInlineEditFormChange({ ...inlineEditForm, name: event.target.value })} required />
+                  </label>
+                  <label>
+                    <span>Cell phone</span>
+                    <input value={inlineEditForm.phone} onChange={(event) => onInlineEditFormChange({ ...inlineEditForm, phone: event.target.value })} required />
+                  </label>
+                  <label>
+                    <span>Date of birth</span>
+                    <input type="date" value={inlineEditForm.birthDate} onChange={(event) => onInlineEditFormChange({ ...inlineEditForm, birthDate: event.target.value })} />
+                  </label>
+                  <label>
+                    <span>Gender</span>
+                    <select value={inlineEditForm.gender} onChange={(event) => onInlineEditFormChange({ ...inlineEditForm, gender: event.target.value })}>
+                      <option value="">Unset</option>
+                      <option value="female">Female</option>
+                      <option value="male">Male</option>
+                      <option value="other">Other</option>
+                      <option value="unknown">Unknown</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>City</span>
+                    <input value={inlineEditForm.city} onChange={(event) => onInlineEditFormChange({ ...inlineEditForm, city: event.target.value })} />
+                  </label>
+                  <label>
+                    <span>State</span>
+                    <input value={inlineEditForm.state} onChange={(event) => onInlineEditFormChange({ ...inlineEditForm, state: event.target.value.toUpperCase().slice(0, 2) })} maxLength={2} />
+                  </label>
+                  <label className="wide-field">
+                    <span>Visit context</span>
+                    <input value={inlineEditForm.visitTitle} onChange={(event) => onInlineEditFormChange({ ...inlineEditForm, visitTitle: event.target.value })} />
+                  </label>
+                  <label className="wide-field">
+                    <span>Assigned provider</span>
+                    <select value={inlineEditForm.primaryProviderId} onChange={(event) => onInlineEditFormChange({ ...inlineEditForm, primaryProviderId: event.target.value })}>
+                      <option value="">Unassigned</option>
+                      {providers.map((provider) => (
+                        <option key={provider.id} value={provider.id}>{provider.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="inline-editor-actions">
+                  <button type="button" className="quiet-button" onClick={onCancelInlineEdit}>Cancel</button>
+                  {inlineEditMessage && <span>{inlineEditMessage}</span>}
+                  <button type="submit" className="edit-button" disabled={isInlineEditSaving}>
+                    <Save size={15} /> {isInlineEditSaving ? 'Saving...' : 'Save changes'}
+                  </button>
+                </div>
+              </form>
+            )}
+            </Fragment>
           )
         })}
         {!users.length && (
@@ -1002,110 +1063,6 @@ function UserRoster({
         )}
       </div>
     </div>
-  )
-}
-
-function PatientDetailPanel({
-  patient,
-  providers,
-  form,
-  message,
-  isSaving,
-  onFormChange,
-  onSubmit,
-  onOpenPatient,
-}: {
-  patient?: DirectoryPerson
-  providers: DirectoryPerson[]
-  form: PatientFormState
-  message: string
-  isSaving: boolean
-  onFormChange: (form: PatientFormState) => void
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void
-  onOpenPatient: (recordId: string) => void
-}) {
-  if (!patient) {
-    return (
-      <div className="panel patient-detail-panel empty-patient-detail">
-        <p className="eyebrow">Patient profile</p>
-        <h2>No patient selected</h2>
-      </div>
-    )
-  }
-
-  return (
-    <form className="panel patient-detail-panel" onSubmit={onSubmit}>
-      <div className="panel-title-row patient-detail-title">
-        <div>
-          <p className="eyebrow">Patient profile</p>
-          <h2>{patient.name}</h2>
-        </div>
-        {form.sourceRecordId && (
-          <button type="button" className="quiet-button" onClick={() => onOpenPatient(form.sourceRecordId)}>
-            <MessageSquareText size={16} /> Open chat
-          </button>
-        )}
-      </div>
-
-      <div className="patient-detail-meta">
-        <span>{form.birthDate ? `${ageFromBirthDate(form.birthDate)} yrs` : 'Age unknown'}</span>
-        <span>{form.gender || 'Gender unset'}</span>
-        <span>{[form.city, form.state].filter(Boolean).join(', ') || 'Location unset'}</span>
-      </div>
-
-      <div className="patient-form-grid">
-        <label>
-          <span>Name</span>
-          <input value={form.name} onChange={(event) => onFormChange({ ...form, name: event.target.value })} required />
-        </label>
-        <label>
-          <span>Cell phone</span>
-          <input value={form.phone} onChange={(event) => onFormChange({ ...form, phone: event.target.value })} required />
-        </label>
-        <label>
-          <span>Date of birth</span>
-          <input type="date" value={form.birthDate} onChange={(event) => onFormChange({ ...form, birthDate: event.target.value })} />
-        </label>
-        <label>
-          <span>Gender</span>
-          <select value={form.gender} onChange={(event) => onFormChange({ ...form, gender: event.target.value })}>
-            <option value="">Unset</option>
-            <option value="female">Female</option>
-            <option value="male">Male</option>
-            <option value="other">Other</option>
-            <option value="unknown">Unknown</option>
-          </select>
-        </label>
-        <label>
-          <span>City</span>
-          <input value={form.city} onChange={(event) => onFormChange({ ...form, city: event.target.value })} />
-        </label>
-        <label>
-          <span>State</span>
-          <input value={form.state} onChange={(event) => onFormChange({ ...form, state: event.target.value.toUpperCase().slice(0, 2) })} maxLength={2} />
-        </label>
-        <label className="wide-field">
-          <span>Visit context</span>
-          <input value={form.visitTitle} onChange={(event) => onFormChange({ ...form, visitTitle: event.target.value })} />
-        </label>
-        <label className="wide-field">
-          <span>Assigned provider</span>
-          <select value={form.primaryProviderId} onChange={(event) => onFormChange({ ...form, primaryProviderId: event.target.value })}>
-            <option value="">Unassigned</option>
-            {providers.map((provider) => (
-              <option key={provider.id} value={provider.id}>{provider.name}</option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      <div className="patient-detail-actions">
-        <button type="submit" disabled={isSaving}>
-          <Save size={16} /> Save patient
-        </button>
-        {message && <div className="admin-message">{message}</div>}
-      </div>
-    </form>
   )
 }
 
@@ -1211,6 +1168,7 @@ function ProviderView({
   const assignedPatients = useMemo(
     () => selectedProvider
       ? directory.people.filter((person) => person.roles.includes('patient') && person.primaryProviderId === selectedProvider.id)
+        .filter((person) => person.id !== selectedProvider.id)
       : [],
     [directory.people, selectedProvider],
   )

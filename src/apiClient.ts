@@ -21,6 +21,16 @@ const localRunsStorageKey = 'abby.demo.runs'
 const localDirectoryStorageKey = 'abby.demo.directory'
 const seededAt = '2026-07-18T19:30:00Z'
 
+class AbbyApiError extends Error {
+  readonly status?: number
+
+  constructor(message: string, status?: number) {
+    super(message)
+    this.name = 'AbbyApiError'
+    this.status = status
+  }
+}
+
 function readLocalRuns(): Record<string, AbbyRun> {
   const stored = window.localStorage.getItem(localRunsStorageKey)
   if (!stored) return {}
@@ -96,7 +106,7 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   })
   if (!response.ok) {
     const detail = await readErrorDetail(response)
-    throw new Error(detail ? `Abby API returned ${response.status}: ${detail}` : `Abby API returned ${response.status}`)
+    throw new AbbyApiError(detail ? `Abby API returned ${response.status}: ${detail}` : `Abby API returned ${response.status}`, response.status)
   }
   return response.json() as Promise<T>
 }
@@ -200,8 +210,9 @@ function patientVerificationUrl(patient: DirectoryPerson): string | undefined {
 export async function loadDirectory(): Promise<DirectoryResponse> {
   try {
     const remote = await requestJson<DirectoryResponse>('/api/directory')
-    const stored = readStoredDirectory()
-    return stored ? normalizeSeededDirectory(stored, remote.people) : remote
+    const normalized = normalizeSeededDirectory(remote, remote.people)
+    writeLocalDirectory(normalized)
+    return normalized
   } catch {
     return readLocalDirectory()
   }
@@ -250,19 +261,10 @@ export async function saveDirectoryPerson(person: Partial<DirectoryPerson>): Pro
     } satisfies DirectoryPerson
     const people = current.people.filter((item) => item.id !== nextPerson.id && item.phone !== phone)
     const next = toLocalDirectoryResponse([nextPerson, ...people])
-    writeLocalDirectory(next)
-    return next
-  }
-}
-
-function readStoredDirectory(): DirectoryResponse | undefined {
-  const stored = window.localStorage.getItem(localDirectoryStorageKey)
-  if (!stored) return undefined
-  try {
-    return JSON.parse(stored) as DirectoryResponse
-  } catch {
-    window.localStorage.removeItem(localDirectoryStorageKey)
-    return undefined
+    const seeded = await seededDirectory()
+    const normalized = normalizeSeededDirectory(next, seeded.people)
+    writeLocalDirectory(normalized)
+    return normalized
   }
 }
 
@@ -272,7 +274,8 @@ export async function sendDirectoryOtp(phone: string): Promise<DirectoryResponse
       method: 'POST',
       body: JSON.stringify({ action: 'send-otp', phone }),
     })
-  } catch {
+  } catch (error) {
+    if (error instanceof AbbyApiError) throw error
     const current = await readLocalDirectory()
     return toLocalDirectoryResponse(current.people, { otp: { mode: 'mock', phone: normalizePhone(phone), demoCode: '123456' } })
   }
@@ -284,7 +287,9 @@ export async function verifyDirectoryOtp(phone: string, code: string): Promise<D
       method: 'POST',
       body: JSON.stringify({ action: 'verify-otp', phone, code }),
     })
-  } catch {
+  } catch (error) {
+    if (error instanceof AbbyApiError) throw error
+    if (code !== '123456') throw new Error('Invalid or expired code')
     const current = await readLocalDirectory()
     const normalizedPhone = normalizePhone(phone)
     return toLocalDirectoryResponse(current.people, {
@@ -319,7 +324,7 @@ function normalizeSeededDirectory(current: DirectoryResponse, seededPeople: Dire
           ...seed,
           name: existing.name || seed.name,
           phone: existing.phone || seed.phone,
-          roles: existing.roles.length ? normalizeDirectoryRoles(existing.roles) : seed.roles,
+          roles: mergeSeedRoles(seed.roles, existing.roles),
           specialty: existing.specialty,
           abbyInstructions: existing.abbyInstructions ?? seed.abbyInstructions,
           abbyInstructionsTitle: existing.abbyInstructionsTitle ?? seed.abbyInstructionsTitle,
@@ -413,6 +418,10 @@ function hasAdminRole(person: DirectoryPerson): boolean {
 
 function normalizeDirectoryRoles(roles: DirectoryPerson['roles']): DirectoryPerson['roles'] {
   return roles.map((role) => String(role) === 'superadmin' ? 'admin' : role)
+}
+
+function mergeSeedRoles(seedRoles: DirectoryPerson['roles'], existingRoles: DirectoryPerson['roles']): DirectoryPerson['roles'] {
+  return [...new Set([...seedRoles, ...normalizeDirectoryRoles(existingRoles)])]
 }
 
 function syntheticPatient(record: EncounterRecord, index: number): DirectoryPerson {

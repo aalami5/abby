@@ -14,12 +14,14 @@ type PatientChatProps = {
 }
 
 export function PatientChat({ abbyCase, directory, run, onLaunch, isRunBusy, patientOnly = false }: PatientChatProps) {
+  const directoryPatient = useMemo(() => (
+    directory?.people.find((person) => person.sourceRecordId === abbyCase.record.id)
+  ), [abbyCase.record.id, directory])
   const provider = useMemo(() => {
     if (!directory) return undefined
-    const patient = directory.people.find((person) => person.sourceRecordId === abbyCase.record.id)
-    return directory.people.find((person) => person.id === patient?.primaryProviderId) ?? directory.people.find((person) => person.roles.includes('provider'))
-  }, [abbyCase.record.id, directory])
-  const context = useMemo(() => buildChatContext(abbyCase, provider), [abbyCase, provider])
+    return directory.people.find((person) => person.id === directoryPatient?.primaryProviderId) ?? directory.people.find((person) => person.roles.includes('provider'))
+  }, [directory, directoryPatient?.primaryProviderId])
+  const context = useMemo(() => buildChatContext(abbyCase, provider, directoryPatient), [abbyCase, provider, directoryPatient])
   const storageKey = chatStorageKey(abbyCase.record.id)
   const [messages, setMessages] = useState<AbbyChatMessage[]>(() => readStoredMessages(storageKey, abbyCase, provider))
   const [draft, setDraft] = useState('')
