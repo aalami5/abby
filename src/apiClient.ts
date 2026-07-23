@@ -1,6 +1,7 @@
 import { approveRun, createRun, executeApprovedRun, getPatientName, loadRecords } from './abbyEngine'
 import type { AbbyChatContext, AbbyChatMessage, AbbyChatResponse } from './chatTypes'
 import type { AbbyCase, AbbyRun, DirectoryPerson, DirectoryResponse, EncounterRecord } from './types'
+import { providerDisplayName } from './providerNames'
 
 type RunsResponse = {
   persistence: string
@@ -47,7 +48,7 @@ function writeLocalRuns(runsByCase: Record<string, AbbyRun>) {
 }
 
 function defaultDirectory(): DirectoryResponse {
-  return toLocalDirectoryResponse([oliverAdmin()])
+  return toLocalDirectoryResponse([oliverAdmin(), ...demoProviders()])
 }
 
 async function readLocalDirectory(): Promise<DirectoryResponse> {
@@ -191,18 +192,17 @@ export async function sendPatientCheckIn(input: {
       patientId: input.patient.id,
       patientName: input.patient.name,
       patientPhone: input.patient.phone,
-      providerName: input.provider?.id === 'person-oliver-aalami' ? 'Dr. Oliver Aalami' : (input.provider?.name ?? 'Dr. Oliver Aalami'),
+      providerName: providerDisplayName(input.provider?.name ?? 'Oliver Aalami'),
       specialty: input.provider?.specialty ?? 'Vascular Surgery',
-      chatUrl: patientVerificationUrl(input.patient),
+      chatUrl: patientChatUrl(input.patient),
     }),
   })
 }
 
-function patientVerificationUrl(patient: DirectoryPerson): string | undefined {
+function patientChatUrl(patient: DirectoryPerson): string | undefined {
   if (!patient.sourceRecordId || typeof window === 'undefined') return undefined
   const url = new URL(window.location.origin)
   url.searchParams.set('role', 'patient')
-  url.searchParams.set('verify', '1')
   url.searchParams.set('patient', patient.sourceRecordId)
   return url.toString()
 }
@@ -304,7 +304,7 @@ export async function verifyDirectoryOtp(phone: string, code: string): Promise<D
 async function seededDirectory(): Promise<DirectoryResponse> {
   try {
     const records = await loadRecords()
-    return toLocalDirectoryResponse([oliverAdmin(), ...records.map(syntheticPatient)])
+    return toLocalDirectoryResponse([oliverAdmin(), ...demoProviders(), ...records.map(syntheticPatient)])
   } catch {
     return defaultDirectory()
   }
@@ -389,11 +389,61 @@ function oliverAdmin(): DirectoryPerson {
       '',
       'Use a vascular-surgery lens for patient outreach and provider briefs.',
       'Prioritize cardiovascular risk, limb symptoms, wound status, medication adherence, and urgent red flags.',
+      'Always adapt the patient-facing conversation to the care setting. Inpatient chats should use a rounding-style check-in about the hospital stay, overnight changes, acute symptom trajectory, comfort, and the patient\'s biggest concern that morning. Outpatient chats should use a pre-visit check-in about the primary symptom or visit reason, interval changes, symptom impact, medications, barriers, and priorities for the visit.',
+      'Keep patient interviews focused: do not invent daily activity examples, hobbies, distances, or home details; ask one direct question per section and move on quickly.',
       'Keep patient-facing language concise, calm, and action-oriented.',
+      'Do not start every reply with thanks or the patient name; use the name mainly in the greeting or when it sounds natural.',
     ].join('\n'),
     createdAt: seededAt,
     updatedAt: seededAt,
   }
+}
+
+function demoProviders(): DirectoryPerson[] {
+  return [
+    {
+      id: 'person-maya-chen-cardiology',
+      name: 'Maya Chen',
+      phone: '+15550120051',
+      roles: ['provider'],
+      specialty: 'Cardiology',
+      abbyInstructions: [
+        'Provider: Dr. Maya Chen',
+        'Specialty: Cardiology',
+        'Focus on blood pressure, chest pain, dyspnea, edema, lipid control, medication adherence, and escalation for cardiac red flags.',
+      ].join('\n'),
+      createdAt: seededAt,
+      updatedAt: seededAt,
+    },
+    {
+      id: 'person-sam-patel-primary-care',
+      name: 'Sam Patel',
+      phone: '+15550120052',
+      roles: ['provider'],
+      specialty: 'Internal Medicine',
+      abbyInstructions: [
+        'Provider: Dr. Sam Patel',
+        'Specialty: Internal Medicine',
+        'Take a broad primary-care view. Reconcile medications, chronic conditions, preventive care gaps, and patient priorities for the visit.',
+      ].join('\n'),
+      createdAt: seededAt,
+      updatedAt: seededAt,
+    },
+    {
+      id: 'person-lena-morales-endocrinology',
+      name: 'Lena Morales',
+      phone: '+15550120053',
+      roles: ['provider'],
+      specialty: 'Endocrinology',
+      abbyInstructions: [
+        'Provider: Dr. Lena Morales',
+        'Specialty: Endocrinology',
+        'Prioritize diabetes control, medication side effects, hypoglycemia risk, weight change, thyroid symptoms, and lab follow-up.',
+      ].join('\n'),
+      createdAt: seededAt,
+      updatedAt: seededAt,
+    },
+  ]
 }
 
 function seedAgentInstructionReferences(): DirectoryResponse['agentInstructionReferences'] {

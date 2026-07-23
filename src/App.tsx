@@ -1,20 +1,14 @@
-import { Fragment, type FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, type FormEvent, useEffect, useMemo, useState } from 'react'
 import {
   CalendarCheck,
   Check,
   ChevronDown,
   ClipboardList,
-  Database,
-  LogOut,
-  MessageSquareText,
   Pencil,
   Plus,
   Save,
-  Send,
-  Settings,
   ShieldCheck,
   Stethoscope,
-  type LucideIcon,
   UsersRound,
   UserRound,
   X,
@@ -22,6 +16,7 @@ import {
 import './App.css'
 import { buildCase, loadRecords } from './abbyEngine'
 import { PatientChat } from './PatientChat'
+import { providerDisplayName } from './providerNames'
 import {
   approveCloudRun,
   executeCloudRun,
@@ -29,31 +24,23 @@ import {
   loadDirectory,
   loadRuns,
   saveDirectoryPerson,
-  sendDirectoryOtp,
-  sendPatientCheckIn,
-  verifyDirectoryOtp,
 } from './apiClient'
 import type { AbbyCase, AbbyRun, DirectoryPerson, DirectoryResponse, DirectoryRole, EncounterRecord } from './types'
 
 type View = 'admin' | 'patient' | 'provider'
-type AdminSection = 'users' | 'patients' | 'settings'
+type AdminSection = 'users' | 'patients'
 type DirectoryUserFilter = 'providers' | 'patients' | 'admins'
-
-const menuItems: Array<
-  { id: 'users' | 'patients' | 'chat' | 'brief' | 'settings'; label: string; icon: LucideIcon }
-> = [
-  { id: 'users', label: 'Users', icon: UsersRound },
-  { id: 'patients', label: 'Patients', icon: UserRound },
-  { id: 'chat', label: 'Patient chat', icon: MessageSquareText },
-  { id: 'brief', label: 'App Instructions', icon: Stethoscope },
-  { id: 'settings', label: 'Settings', icon: Settings },
-]
 
 const directoryRoleOptions: Array<{ value: DirectoryRole; label: string }> = [
   { value: 'admin', label: 'Admin' },
   { value: 'patient', label: 'Patient' },
   { value: 'provider', label: 'Provider' },
 ]
+
+const pageRoleOptions = directoryRoleOptions.map((role) => ({
+  ...role,
+  label: `${role.label} page`,
+}))
 
 const directoryFilterOptions: Array<{
   value: DirectoryUserFilter
@@ -117,6 +104,7 @@ const medicalSpecialtyOptions = [
 function App() {
   const [records, setRecords] = useState<EncounterRecord[]>([])
   const [selectedId, setSelectedId] = useState('')
+  const [selectedProviderId, setSelectedProviderId] = useState('')
   const [view, setView] = useState<View>('admin')
   const [adminSection, setAdminSection] = useState<AdminSection>('users')
   const [selectedRole, setSelectedRole] = useState<DirectoryRole>('admin')
@@ -126,7 +114,6 @@ function App() {
   const [directory, setDirectory] = useState<DirectoryResponse | null>(null)
   const [runError, setRunError] = useState('')
   const [isRunBusy, setIsRunBusy] = useState(false)
-  const [verifiedPatientRecordIds, setVerifiedPatientRecordIds] = useState<Set<string>>(() => new Set())
 
   useEffect(() => {
     async function initialize() {
@@ -135,6 +122,7 @@ function App() {
         const deepLink = patientChatDeepLink(loadedRecords)
         setRecords(loadedRecords)
         setSelectedId(deepLink.recordId ?? loadedRecords[1]?.id ?? loadedRecords[0]?.id ?? '')
+        setSelectedProviderId(deepLink.providerId ?? '')
         if (deepLink.openPatientChat) setSelectedRole('patient')
         setRunsByCase(loadedRuns.runsByCase)
         setPersistence(loadedRuns.persistence)
@@ -148,20 +136,7 @@ function App() {
 
   const selectedRecord = useMemo(() => records.find((record) => record.id === selectedId) ?? records[0], [records, selectedId])
   const abbyCase = useMemo(() => (selectedRecord ? buildCase(selectedRecord) : null), [selectedRecord])
-  const selectedDirectoryPatient = useMemo(
-    () => directory?.people.find((person) => person.roles.includes('patient') && person.sourceRecordId === abbyCase?.record.id),
-    [abbyCase?.record.id, directory],
-  )
   const activeRun = abbyCase ? runsByCase[abbyCase.record.id] : undefined
-  const navItems = useMemo(
-    () => {
-      if (selectedRole === 'patient') return menuItems.filter((item) => item.id === 'chat')
-      if (selectedRole === 'admin') return menuItems.filter((item) => item.id === 'users' || item.id === 'settings')
-      if (selectedRole === 'provider') return menuItems.filter((item) => item.id === 'brief' || item.id === 'settings')
-      return menuItems
-    },
-    [selectedRole],
-  )
 
   useEffect(() => {
     if (selectedRole === 'patient' && view !== 'patient') {
@@ -173,7 +148,7 @@ function App() {
       setAdminSection('users')
       return
     }
-    if (selectedRole === 'provider' && (view === 'patient' || (view === 'admin' && adminSection !== 'settings'))) {
+    if (selectedRole === 'provider' && view !== 'provider') {
       setView('provider')
       return
     }
@@ -183,10 +158,28 @@ function App() {
     }
   }, [adminSection, selectedRole, view])
 
+  useEffect(() => {
+    if (!directory || selectedProviderId) return
+    const defaultProviderId = providerIdForRecord(selectedId, directory)
+    if (defaultProviderId) setSelectedProviderId(defaultProviderId)
+  }, [directory, selectedId, selectedProviderId])
+
   const applyRunResponse = (response: Awaited<ReturnType<typeof loadRuns>>) => {
     setRunsByCase(response.runsByCase)
     setPersistence(response.persistence)
     setRunError('')
+  }
+
+  const selectPatientChatRecord = (recordId: string) => {
+    setSelectedId(recordId)
+    const defaultProviderId = providerIdForRecord(recordId, directory)
+    if (defaultProviderId) setSelectedProviderId(defaultProviderId)
+    updatePatientChatUrl(recordId, defaultProviderId || selectedProviderId)
+  }
+
+  const selectPatientChatProvider = (providerId: string) => {
+    setSelectedProviderId(providerId)
+    updatePatientChatUrl(selectedId, providerId)
   }
 
   const launchRun = async (nextCase: AbbyCase, nextView: View = 'patient') => {
@@ -234,63 +227,7 @@ function App() {
   }
 
   return (
-    <main className="app-shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <div className="brand-mark" aria-label="Abby logo">
-            <img src="/abby-logo.jpg" alt="" />
-          </div>
-        </div>
-
-        <nav className="nav" aria-label="Abby admin navigation">
-          {navItems.map((item) => {
-            const Icon = item.icon
-            const active = (
-              (item.id === 'users' && view === 'admin' && adminSection === 'users') ||
-              (item.id === 'patients' && view === 'admin' && adminSection === 'patients') ||
-              (item.id === 'chat' && view === 'patient') ||
-              (item.id === 'brief' && view === 'provider') ||
-              (item.id === 'settings' && view === 'admin' && adminSection === 'settings')
-            )
-            const selectItem = () => {
-              if (item.id === 'users' || item.id === 'patients' || item.id === 'settings') {
-                setAdminSection(item.id)
-                setView('admin')
-                return
-              }
-              if (item.id === 'chat') {
-                setView('patient')
-                return
-              }
-              if (item.id === 'brief') {
-                setView('provider')
-                return
-              }
-              setAdminSection('users')
-              setView('admin')
-            }
-
-            return (
-              <button
-                key={item.id}
-                type="button"
-                className={active ? 'active' : ''}
-                onClick={selectItem}
-                title={item.label}
-              >
-                <Icon size={19} />
-                <span>{item.label}</span>
-              </button>
-            )
-          })}
-        </nav>
-
-        <div className="sidebar-footer">
-          <Database size={18} />
-          <span>{persistence === 'browser-fallback' ? 'Local fallback' : 'Cloud demo'}</span>
-        </div>
-      </aside>
-
+    <main className={`app-shell ${view === 'patient' ? 'patient-shell' : ''}`}>
       <section className="workspace">
         <Header
           abbyCase={abbyCase}
@@ -301,16 +238,6 @@ function App() {
           selectedRole={selectedRole}
           onSelectedRoleChange={setSelectedRole}
         />
-        {view !== 'admin' && selectedRole !== 'patient' && (
-          <div className="case-bar">
-            <label htmlFor="case-select">Synthetic case</label>
-            <select id="case-select" value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>
-              {records.map((record) => (
-                <option key={record.id} value={record.id}>{record.metadata.visit_title}</option>
-              ))}
-            </select>
-          </div>
-        )}
         {runError && <div className="runtime-error">{runError}</div>}
         {view === 'admin' && directory && (
           <AdminView
@@ -320,36 +247,27 @@ function App() {
             onDirectoryChange={setDirectory}
             onOpenPatient={(recordId) => {
               setSelectedId(recordId)
+              const defaultProviderId = providerIdForRecord(recordId, directory)
+              if (defaultProviderId) setSelectedProviderId(defaultProviderId)
+              updatePatientChatUrl(recordId, defaultProviderId || selectedProviderId)
               setView('patient')
             }}
           />
         )}
         {view === 'patient' && (
-          selectedRole === 'patient' && !verifiedPatientRecordIds.has(abbyCase.record.id)
-            ? (
-              <PatientVerificationGate
-                patient={selectedDirectoryPatient}
-                recordId={abbyCase.record.id}
-                onDirectoryChange={setDirectory}
-                onVerified={(recordId) => {
-                  setVerifiedPatientRecordIds((current) => {
-                    const next = new Set(current)
-                    next.add(recordId)
-                    return next
-                  })
-                }}
-              />
-            )
-            : (
-              <PatientChat
-                abbyCase={abbyCase}
-                directory={directory}
-                run={activeRun}
-                onLaunch={() => launchRun(abbyCase)}
-                isRunBusy={isRunBusy}
-                patientOnly={selectedRole === 'patient'}
-              />
-            )
+          <PatientChat
+            abbyCase={abbyCase}
+            records={records}
+            selectedRecordId={selectedId}
+            directory={directory}
+            run={activeRun}
+            onLaunch={() => launchRun(abbyCase)}
+            isRunBusy={isRunBusy}
+            selectedProviderId={selectedProviderId}
+            onRecordChange={selectPatientChatRecord}
+            onProviderChange={selectPatientChatProvider}
+            patientOnly={selectedRole === 'patient'}
+          />
         )}
         {view === 'provider' && directory && (
           <ProviderView
@@ -360,113 +278,17 @@ function App() {
             onApprove={approveActiveRun}
             onExecute={executeActiveRun}
             isRunBusy={isRunBusy}
-            onOpenPatient={(recordId) => {
+            onOpenPatient={(recordId, providerId) => {
               setSelectedId(recordId)
+              const defaultProviderId = providerId || providerIdForRecord(recordId, directory)
+              if (defaultProviderId) setSelectedProviderId(defaultProviderId)
+              updatePatientChatUrl(recordId, defaultProviderId || selectedProviderId)
               setView('patient')
             }}
           />
         )}
       </section>
     </main>
-  )
-}
-
-function PatientVerificationGate({
-  patient,
-  recordId,
-  onDirectoryChange,
-  onVerified,
-}: {
-  patient?: DirectoryPerson
-  recordId: string
-  onDirectoryChange: (directory: DirectoryResponse) => void
-  onVerified: (recordId: string) => void
-}) {
-  const [code, setCode] = useState('')
-  const [status, setStatus] = useState('Preparing verification...')
-  const [isSending, setIsSending] = useState(false)
-  const [isVerifying, setIsVerifying] = useState(false)
-
-  const sendCode = useCallback(async () => {
-    if (!patient?.phone) {
-      setStatus('This patient does not have a phone number on file.')
-      return
-    }
-    setIsSending(true)
-    try {
-      const nextDirectory = await sendDirectoryOtp(patient.phone)
-      onDirectoryChange(nextDirectory)
-      const otp = nextDirectory.otp
-      if (otp?.demoCode) {
-        setStatus(`Demo code ${otp.demoCode} for ${maskedPhone(patient.phone)}.`)
-      } else if (otp?.mode === 'twilio-verify') {
-        setStatus(`Twilio Verify sent a code to ${maskedPhone(patient.phone)}.`)
-      } else if (otp?.mode === 'twilio-sms') {
-        setStatus(`Twilio SMS sent a code to ${maskedPhone(patient.phone)}.`)
-      } else {
-        setStatus(`Verification code sent to ${maskedPhone(patient.phone)}.`)
-      }
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : String(error))
-    } finally {
-      setIsSending(false)
-    }
-  }, [onDirectoryChange, patient?.phone])
-
-  useEffect(() => {
-    void sendCode()
-  }, [sendCode])
-
-  const verifyCode = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (!patient?.phone || !code.trim()) return
-    setIsVerifying(true)
-    try {
-      const nextDirectory = await verifyDirectoryOtp(patient.phone, code)
-      onDirectoryChange(nextDirectory)
-      onVerified(recordId)
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : String(error))
-    } finally {
-      setIsVerifying(false)
-    }
-  }
-
-  return (
-    <section className="content-grid patient-verification-workspace">
-      <form className="panel otp-panel patient-verification-panel" onSubmit={verifyCode}>
-        <div className="panel-title-row">
-          <div>
-            <p className="eyebrow">Patient verification</p>
-            <h2>Enter your code</h2>
-          </div>
-          <ShieldCheck size={22} />
-        </div>
-        <p className="verification-copy">
-          Abby needs to verify this phone before opening the check-in chat.
-        </p>
-        <label>
-          <span>Verification code</span>
-          <input
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            value={code}
-            onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
-            placeholder="123456"
-            required
-          />
-        </label>
-        <div className="otp-row">
-          <button type="button" className="secondary" onClick={sendCode} disabled={isSending || !patient?.phone}>
-            {isSending ? 'Sending...' : 'Resend'}
-          </button>
-          <span>{status}</span>
-          <button type="submit" disabled={isVerifying || code.trim().length < 4 || !patient?.phone}>
-            {isVerifying ? 'Checking...' : 'Verify'}
-          </button>
-        </div>
-      </form>
-    </section>
   )
 }
 
@@ -489,10 +311,13 @@ function Header({
 }) {
   const { record } = abbyCase
   const [isRoleMenuOpen, setIsRoleMenuOpen] = useState(false)
-  const selectedRoleOption = directoryRoleOptions.find((role) => role.value === selectedRole) ?? directoryRoleOptions[0]
+  const selectedRoleOption = pageRoleOptions.find((role) => role.value === selectedRole) ?? pageRoleOptions[0]
   return (
     <header className="topbar">
       <div className="topbar-left">
+        <div className="topbar-brand" aria-label="Abby logo">
+          <img src="/abby-logo.jpg" alt="" />
+        </div>
         <div className="role-menu-shell">
           <button
             type="button"
@@ -507,7 +332,7 @@ function Header({
           </button>
           {isRoleMenuOpen && (
             <div className="role-dropdown" role="menu">
-              {directoryRoleOptions.map((role) => (
+              {pageRoleOptions.map((role) => (
                 <button
                   key={role.value}
                   type="button"
@@ -528,18 +353,6 @@ function Header({
             </div>
           )}
         </div>
-      </div>
-
-      <div className="topbar-account" aria-label="Current user">
-        <UserRound size={19} />
-        <div>
-          <span>{selectedRoleOption.label}</span>
-          <strong>Oliver Aalami</strong>
-        </div>
-        <button type="button" title="Logout" aria-label="Logout">
-          <LogOut size={18} />
-          <span>Logout</span>
-        </button>
       </div>
 
       {view !== 'admin' && (
@@ -581,7 +394,7 @@ function AdminView({
   adminSection: AdminSection
   onAdminSectionChange: (section: AdminSection) => void
   onDirectoryChange: (directory: DirectoryResponse) => void
-  onOpenPatient: (recordId: string) => void
+  onOpenPatient: (recordId: string, providerId?: string) => void
 }) {
   const [form, setForm] = useState({
     id: '',
@@ -806,30 +619,6 @@ function AdminView({
           />
         </div>
       )}
-
-      {adminSection === 'settings' && (
-        <div className="settings-workspace">
-          <div className="panel settings-panel">
-            <div className="panel-title-row">
-              <div>
-                <p className="eyebrow">Settings</p>
-                <h2>Workspace settings</h2>
-              </div>
-              <Settings size={20} />
-            </div>
-            <div className="settings-list">
-              <div>
-                <strong>Demo mode</strong>
-                <span>Abby is configured for the current portal demo.</span>
-              </div>
-              <div>
-                <strong>Patient messaging</strong>
-                <span>Pre-visit messages are routed into the selected patient's chat thread.</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </section>
   )
 }
@@ -885,7 +674,7 @@ function UserRoster({
   activeFilter?: DirectoryUserFilter
   onFilterChange?: (filter: DirectoryUserFilter) => void
   onEdit: (person: DirectoryPerson) => void
-  onOpenPatient: (recordId: string) => void
+  onOpenPatient: (recordId: string, providerId?: string) => void
   selectedUserId?: string
   onSelect?: (person: DirectoryPerson) => void
   providers?: DirectoryPerson[]
@@ -941,6 +730,7 @@ function UserRoster({
         </div>
         {users.map((user) => {
           const isInlineEditing = selectedUserId === user.id && inlineEditForm && onInlineEditFormChange && onInlineEditSubmit
+          const userDisplayName = user.roles.includes('provider') ? providerDisplayName(user.name) : user.name
           return (
             <Fragment key={user.id}>
             <div className={`patient-table-row ${isInlineEditing ? 'expanded' : hasInlineEdit ? 'dimmed' : ''}`} role="row">
@@ -949,14 +739,14 @@ function UserRoster({
                   type="button"
                   className={`patient-name-cell patient-select-button ${selectedUserId === user.id ? 'selected' : ''}`}
                   onClick={() => onSelect(user)}
-                  aria-label={`Select ${user.name}`}
+                  aria-label={`Select ${userDisplayName}`}
                 >
-                  <strong>{user.name}</strong>
+                  <strong>{userDisplayName}</strong>
                   <span>{user.sourceRecordId ? 'Abridge synthetic record' : 'Directory user'}</span>
                 </button>
               ) : (
                 <div className="patient-name-cell">
-                  <strong>{user.name}</strong>
+                  <strong>{userDisplayName}</strong>
                   <span>{user.sourceRecordId ? 'Abridge synthetic record' : 'Directory user'}</span>
                 </div>
               )}
@@ -981,7 +771,7 @@ function UserRoster({
                     >
                       <option value="">Unassigned</option>
                       {providers.map((provider) => (
-                        <option key={provider.id} value={provider.id}>{provider.name}</option>
+                        <option key={provider.id} value={provider.id}>{providerDisplayName(provider.name)}</option>
                       ))}
                     </select>
                   </label>
@@ -1038,7 +828,7 @@ function UserRoster({
                     <select value={inlineEditForm.primaryProviderId} onChange={(event) => onInlineEditFormChange({ ...inlineEditForm, primaryProviderId: event.target.value })}>
                       <option value="">Unassigned</option>
                       {providers.map((provider) => (
-                        <option key={provider.id} value={provider.id}>{provider.name}</option>
+                        <option key={provider.id} value={provider.id}>{providerDisplayName(provider.name)}</option>
                       ))}
                     </select>
                   </label>
@@ -1068,32 +858,6 @@ function UserRoster({
 
 function roleLabel(role: DirectoryRole): string {
   return directoryRoleOptions.find((option) => option.value === role)?.label ?? role
-}
-
-function maskedPhone(phone: string): string {
-  const digits = phone.replace(/\D/g, '')
-  const lastFour = digits.slice(-4)
-  return lastFour ? `***-***-${lastFour}` : 'the phone on file'
-}
-
-function invalidSmsDestinationReason(phone: string): string {
-  const normalized = normalizePhoneForSms(phone)
-  if (!/^\+\d{10,15}$/.test(normalized)) return 'Enter a valid cell phone number before starting check-in.'
-
-  const digits = normalized.slice(1)
-  if (!digits.startsWith('1') || digits.length !== 11) return ''
-
-  const areaCode = digits.slice(1, 4)
-  const exchange = digits.slice(4, 7)
-  const lineNumber = digits.slice(7)
-  if (/^[01]/.test(areaCode) || /^[01]/.test(exchange)) {
-    return 'Enter a valid US cell phone number before starting check-in.'
-  }
-  if (areaCode === '555' || (exchange === '555' && /^01\d\d$/.test(lineNumber))) {
-    return 'The seeded 555 demo number cannot receive texts. Save the patient’s real cell phone, then start check-in.'
-  }
-
-  return ''
 }
 
 function normalizePhoneForSms(phone: string): string {
@@ -1132,14 +896,39 @@ function ageFromBirthDate(birthDate: string): number {
   return age
 }
 
-function patientChatDeepLink(records: EncounterRecord[]): { recordId?: string; openPatientChat: boolean } {
+function patientChatDeepLink(records: EncounterRecord[]): { recordId?: string; providerId?: string; openPatientChat: boolean } {
   const params = new URLSearchParams(window.location.search)
   const requestedRecordId = params.get('patient') || params.get('recordId') || params.get('caseId') || ''
-  const recordId = records.some((record) => record.id === requestedRecordId) ? requestedRecordId : undefined
+  const providerId = params.get('provider') || params.get('providerId') || undefined
+  const recordId = resolvePatientRecordId(requestedRecordId, records)
   return {
     recordId,
+    providerId,
     openPatientChat: params.get('role') === 'patient' || params.get('view') === 'patient' || params.get('view') === 'chat',
   }
+}
+
+function resolvePatientRecordId(requestedRecordId: string, records: EncounterRecord[]): string | undefined {
+  if (records.some((record) => record.id === requestedRecordId)) return requestedRecordId
+  const aliasMatch = /^record-(\d+)$/i.exec(requestedRecordId.trim())
+  if (!aliasMatch) return undefined
+  const index = Number(aliasMatch[1]) - 1
+  return records[index]?.id
+}
+
+function providerIdForRecord(recordId: string, directory: DirectoryResponse | null): string {
+  if (!directory) return ''
+  const patient = directory.people.find((person) => person.roles.includes('patient') && person.sourceRecordId === recordId)
+  return patient?.primaryProviderId || directory.people.find((person) => person.roles.includes('provider'))?.id || ''
+}
+
+function updatePatientChatUrl(recordId: string, providerId?: string) {
+  const params = new URLSearchParams(window.location.search)
+  params.set('role', 'patient')
+  params.set('patient', recordId)
+  if (providerId) params.set('provider', providerId)
+  else params.delete('provider')
+  window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`)
 }
 
 function ProviderView({
@@ -1159,26 +948,21 @@ function ProviderView({
   onApprove: () => void
   onExecute: () => void
   isRunBusy: boolean
-  onOpenPatient: (recordId: string) => void
+  onOpenPatient: (recordId: string, providerId?: string) => void
 }) {
   const providers = directory.people.filter((person) => person.roles.includes('provider'))
   const defaultProvider = providers.find((person) => person.id === 'person-oliver-aalami') ?? providers[0]
   const [selectedProviderId, setSelectedProviderId] = useState(defaultProvider?.id ?? '')
   const selectedProvider = providers.find((provider) => provider.id === selectedProviderId) ?? defaultProvider
   const assignedPatients = useMemo(
-    () => selectedProvider
-      ? directory.people.filter((person) => person.roles.includes('patient') && person.primaryProviderId === selectedProvider.id)
-        .filter((person) => person.id !== selectedProvider.id)
-      : [],
-    [directory.people, selectedProvider],
+    () => directory.people
+      .filter((person) => person.roles.includes('patient'))
+      .filter((person) => person.id !== selectedProvider?.id),
+    [directory.people, selectedProvider?.id],
   )
   const [providerForm, setProviderForm] = useState(() => personToProviderForm(selectedProvider))
   const [providerMessage, setProviderMessage] = useState('')
   const [checkInNotice, setCheckInNotice] = useState('')
-  const [patientPhoneDrafts, setPatientPhoneDrafts] = useState<Record<string, string>>({})
-  const [preVisitStatusByPatient, setPreVisitStatusByPatient] = useState<Record<string, string>>({})
-  const [busyCheckIns, setBusyCheckIns] = useState<Record<string, boolean>>({})
-  const [busyPhoneSaves, setBusyPhoneSaves] = useState<Record<string, boolean>>({})
   const [isProviderSaving, setIsProviderSaving] = useState(false)
 
   useEffect(() => {
@@ -1192,16 +976,6 @@ function ProviderView({
     const timeout = window.setTimeout(() => setCheckInNotice(''), 2200)
     return () => window.clearTimeout(timeout)
   }, [checkInNotice])
-
-  useEffect(() => {
-    setPatientPhoneDrafts((current) => {
-      const next = { ...current }
-      for (const patient of assignedPatients) {
-        if (!(patient.id in next)) next[patient.id] = patient.phone
-      }
-      return next
-    })
-  }, [assignedPatients])
 
   const saveProvider = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -1226,66 +1000,6 @@ function ProviderView({
     }
   }
 
-  const phoneDraftForPatient = (patient: DirectoryPerson) => patientPhoneDrafts[patient.id] ?? patient.phone
-
-  const persistPatientPhone = async (patient: DirectoryPerson): Promise<DirectoryPerson> => {
-    const nextPhone = phoneDraftForPatient(patient)
-    if (nextPhone.trim() === patient.phone.trim()) return patient
-    const nextDirectory = await saveDirectoryPerson({ ...patient, phone: nextPhone })
-    onDirectoryChange(nextDirectory)
-    const savedPatient = nextDirectory.people.find((person) => person.id === patient.id) ?? { ...patient, phone: nextPhone }
-    setPatientPhoneDrafts((current) => ({ ...current, [patient.id]: savedPatient.phone }))
-    return savedPatient
-  }
-
-  const savePatientPhone = async (patient: DirectoryPerson) => {
-    setBusyPhoneSaves((current) => ({ ...current, [patient.id]: true }))
-    setPreVisitStatusByPatient((current) => ({ ...current, [patient.id]: 'Saving phone...' }))
-    try {
-      await persistPatientPhone(patient)
-      setPreVisitStatusByPatient((current) => ({ ...current, [patient.id]: 'Phone saved' }))
-      setCheckInNotice('Phone saved')
-    } catch (error) {
-      setPreVisitStatusByPatient((current) => ({
-        ...current,
-        [patient.id]: error instanceof Error ? error.message : String(error),
-      }))
-    } finally {
-      setBusyPhoneSaves((current) => ({ ...current, [patient.id]: false }))
-    }
-  }
-
-  const startCheckIn = async (patient: DirectoryPerson) => {
-    setBusyCheckIns((current) => ({ ...current, [patient.id]: true }))
-    setPreVisitStatusByPatient((current) => ({ ...current, [patient.id]: 'Sending check-in...' }))
-    try {
-      const savedPatient = await persistPatientPhone(patient)
-      const invalidDestination = invalidSmsDestinationReason(savedPatient.phone)
-      if (invalidDestination) {
-        setPreVisitStatusByPatient((current) => ({ ...current, [patient.id]: invalidDestination }))
-        setCheckInNotice('Check-in needs a real cell phone')
-        return
-      }
-
-      const result = await sendPatientCheckIn({ patient: savedPatient, provider: selectedProvider })
-      const failed = result.mode === 'twilio' && ['failed', 'undelivered'].includes(result.status)
-      const status = result.mode === 'twilio'
-        ? failed
-          ? `Twilio SMS ${result.status}: ${result.twilioErrorMessage ?? result.twilioErrorCode ?? 'delivery failed'}`
-          : `Twilio SMS ${result.status}`
-        : 'Demo message ready; configure Twilio to send'
-      setPreVisitStatusByPatient((current) => ({ ...current, [patient.id]: status }))
-      setCheckInNotice(failed ? 'Check-in failed' : 'Check-in sent')
-    } catch (error) {
-      setPreVisitStatusByPatient((current) => ({
-        ...current,
-        [patient.id]: error instanceof Error ? error.message : String(error),
-      }))
-    } finally {
-      setBusyCheckIns((current) => ({ ...current, [patient.id]: false }))
-    }
-  }
-
   if (!selectedProvider) {
     return (
       <section className="content-grid">
@@ -1304,7 +1018,7 @@ function ProviderView({
         <div className="panel-title-row patient-detail-title">
           <div>
             <p className="eyebrow">Provider profile</p>
-            <h2>{selectedProvider.name}</h2>
+            <h2>{providerDisplayName(selectedProvider.name)}</h2>
           </div>
           {providers.length > 1 && (
             <select
@@ -1316,7 +1030,7 @@ function ProviderView({
               aria-label="Select provider"
             >
               {providers.map((provider) => (
-                <option key={provider.id} value={provider.id}>{provider.name}</option>
+                <option key={provider.id} value={provider.id}>{providerDisplayName(provider.name)}</option>
               ))}
             </select>
           )}
@@ -1328,7 +1042,7 @@ function ProviderView({
             <input value={providerForm.name} onChange={(event) => setProviderForm({ ...providerForm, name: event.target.value })} required />
           </label>
           <label>
-            <span>Cell phone for two-factor authentication</span>
+            <span>Contact phone</span>
             <input value={providerForm.phone} onChange={(event) => setProviderForm({ ...providerForm, phone: event.target.value })} required />
           </label>
           <label className="wide-field">
@@ -1372,37 +1086,11 @@ function ProviderView({
               <div>
                 <strong>{patient.name}</strong>
                 <span>{patient.visitTitle ?? 'Patient'}</span>
-                {preVisitStatusByPatient[patient.id] && <small>{preVisitStatusByPatient[patient.id]}</small>}
-              </div>
-              <div className="provider-phone-editor">
-                <label>
-                  <span>Cell phone</span>
-                  <input
-                    value={phoneDraftForPatient(patient)}
-                    onChange={(event) => setPatientPhoneDrafts((current) => ({ ...current, [patient.id]: event.target.value }))}
-                    placeholder="+1 650 555 0100"
-                  />
-                </label>
-                <button
-                  type="button"
-                  className="quiet-button"
-                  onClick={() => savePatientPhone(patient)}
-                  disabled={busyPhoneSaves[patient.id] || phoneDraftForPatient(patient).trim() === patient.phone.trim()}
-                >
-                  <Save size={15} /> Save phone
-                </button>
+                <small>{patient.sourceRecordId ? 'Web chat ready' : 'No linked synthetic visit'}</small>
               </div>
               <div className="provider-patient-actions">
-                <button
-                  type="button"
-                  className="quiet-button"
-                  onClick={() => startCheckIn(patient)}
-                  disabled={busyCheckIns[patient.id]}
-                >
-                  <Send size={15} /> Start check-in
-                </button>
                 {patient.sourceRecordId && (
-                  <button type="button" className="quiet-button" onClick={() => onOpenPatient(patient.sourceRecordId ?? '')}>
+                  <button type="button" className="quiet-button" onClick={() => onOpenPatient(patient.sourceRecordId ?? '', selectedProvider.id)}>
                     Open chat
                   </button>
                 )}

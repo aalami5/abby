@@ -1,4 +1,5 @@
 import type { AbbyCase, DirectoryPerson } from './types'
+import { providerDisplayName } from './providerNames'
 
 export type AbbyChatSender = 'patient' | 'abby'
 
@@ -20,6 +21,8 @@ export type AbbyChatContext = {
     city?: string
     state?: string
     visitTitle: string
+    visitType: string
+    careSetting: 'inpatient' | 'outpatient' | 'other'
     conditions: string[]
     medications: string[]
     signals: Array<{ label: string; value: string; severity: string; source: string }>
@@ -28,10 +31,14 @@ export type AbbyChatContext = {
     transcriptExcerpt: string
     noteExcerpt: string
     afterVisitSummaryExcerpt: string
+    fhirEncounter: unknown
+    fhirResources: Record<string, unknown[]>
   }
   specialist: {
+    id?: string
     name: string
     specialty: string
+    abbyInstructions?: string
   }
 }
 
@@ -40,15 +47,15 @@ export type AbbyChatResponse = {
   model: string
 }
 
-export function chatStorageKey(recordId: string): string {
-  return `abby.chat.${recordId}`
+export function chatStorageKey(recordId: string, providerId?: string, checkInId = 'current'): string {
+  return `abby.chat.v3.${recordId}.${providerId || 'default-provider'}.${checkInId}`
 }
 
 export function buildChatContext(abbyCase: AbbyCase, provider?: DirectoryPerson, directoryPatient?: DirectoryPerson): AbbyChatContext {
   const address = abbyCase.record.patient_context.patient.address?.[0]
   const specialist = provider
     ? {
-        name: provider.name,
+        name: providerDisplayName(provider.name),
         specialty: provider.specialty || inferSpecialty(abbyCase.record.metadata.visit_title),
       }
     : {
@@ -67,6 +74,8 @@ export function buildChatContext(abbyCase: AbbyCase, provider?: DirectoryPerson,
       city: address?.city,
       state: address?.state,
       visitTitle: abbyCase.record.metadata.visit_title,
+      visitType: abbyCase.record.metadata.visit_type,
+      careSetting: inferCareSetting(abbyCase.record.metadata.visit_type, abbyCase.record.metadata.visit_title),
       conditions: abbyCase.record.patient_context.longitudinal_summary.condition_labels.slice(0, 8),
       medications: abbyCase.record.patient_context.longitudinal_summary.medication_labels.slice(0, 8),
       signals: abbyCase.signals,
@@ -75,26 +84,35 @@ export function buildChatContext(abbyCase: AbbyCase, provider?: DirectoryPerson,
       transcriptExcerpt: excerpt(abbyCase.record.transcript, 1800),
       noteExcerpt: excerpt(abbyCase.record.note, 1600),
       afterVisitSummaryExcerpt: excerpt(abbyCase.record.after_visit_summary, 1400),
+      fhirEncounter: abbyCase.record.encounter_fhir.encounter,
+      fhirResources: abbyCase.record.encounter_fhir.related_resources,
     },
-    specialist,
+    specialist: {
+      id: provider?.id,
+      ...specialist,
+      abbyInstructions: provider?.abbyInstructions,
+    },
   }
 }
 
 export function initialAbbyMessage(abbyCase: AbbyCase, provider?: DirectoryPerson): AbbyChatMessage {
-  const specialist = provider?.id === 'person-oliver-aalami'
-    ? 'Dr. Oliver Aalami'
-    : provider?.name ?? `your ${inferSpecialty(abbyCase.record.metadata.visit_title)} specialist`
+  const specialist = provider ? providerDisplayName(provider.name) : `your ${inferSpecialty(abbyCase.record.metadata.visit_title)} specialist`
   const specialty = provider?.specialty || inferSpecialty(abbyCase.record.metadata.visit_title)
+  const first = abbyCase.patientName.split(' ')[0] || 'there'
+  const setting = inferCareSetting(abbyCase.record.metadata.visit_type, abbyCase.record.metadata.visit_title)
+  const content = setting === 'inpatient'
+    ? `Hi ${first}, I am Abby, ${specialist}'s assistant. I am checking in for your ${specialty.toLowerCase()} team while you are in the hospital. How do you feel compared with yesterday?`
+    : `Hi ${first}, I am Abby, ${specialist}'s assistant. I will help with a quick ${specialty.toLowerCase()} check-in before your visit. What brings you in, and what is your main concern today?`
   return {
     id: `abby-welcome-${abbyCase.record.id}`,
     sender: 'abby',
-    content: `Hi ${abbyCase.patientName.split(' ')[0] || 'there'}, I am Abby, ${specialist}'s assistant. I will help with a quick ${specialty.toLowerCase()} check-in before your visit.`,
+    content,
     timestamp: new Date().toISOString(),
   }
 }
 
 export function providerPreVisitMessage(abbyCase: AbbyCase, provider?: DirectoryPerson): AbbyChatMessage {
-  const specialist = provider?.name ?? `your ${inferSpecialty(abbyCase.record.metadata.visit_title)} specialist`
+  const specialist = provider ? providerDisplayName(provider.name) : `your ${inferSpecialty(abbyCase.record.metadata.visit_title)} specialist`
   return {
     id: `abby-previsit-${abbyCase.record.id}`,
     sender: 'abby',
@@ -118,6 +136,13 @@ function inferSpecialty(visitTitle: string): string {
   if (/diabetes|metabolic|endocrine/.test(title)) return 'endocrinology'
   if (/behavior|depress|anxiety|psychiatry|mental/.test(title)) return 'behavioral health'
   return 'care team'
+}
+
+function inferCareSetting(visitType: string, visitTitle: string): 'inpatient' | 'outpatient' | 'other' {
+  const value = `${visitType} ${visitTitle}`.trim().toLowerCase()
+  if (/inpatient|hospital|admission|admitted|unit|ward|icu/.test(value)) return 'inpatient'
+  if (/outpatient|ambulatory|clinic|office|follow-up|follow up|visit/.test(value)) return 'outpatient'
+  return 'other'
 }
 
 function excerpt(value: string, maxLength: number): string {

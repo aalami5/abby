@@ -31,8 +31,8 @@ const capabilities = [
   },
   {
     id: 'phone-otp-auth',
-    label: 'Phone-number OTP authentication with Twilio Verify-ready API',
-    status: 'ready-for-env',
+    label: 'Web patient chat without phone verification',
+    status: 'implemented',
   },
   {
     id: 'durable-storage',
@@ -41,7 +41,7 @@ const capabilities = [
   },
   {
     id: 'real-tools',
-    label: 'Claude, Twilio, ElevenLabs, and FHIR sandbox connectors',
+    label: 'Claude and FHIR sandbox connectors',
     status: 'next',
   },
 ]

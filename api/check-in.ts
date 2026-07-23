@@ -132,9 +132,9 @@ function sleep(ms: number) {
 }
 
 function buildCheckInMessage(body: CheckInRequest & { patientPhone: string; specialty: string }): string {
-  const providerName = body.providerName?.trim() || 'Dr. Oliver Aalami'
+  const providerName = providerDisplayName(body.providerName) || 'Dr. Oliver Aalami'
   const greeting = body.patientName ? `Hi ${firstName(body.patientName)},` : 'Hello,'
-  const invite = `this is Abby, ${providerName}'s assistant. Please verify your phone to start your quick ${body.specialty} check-in`
+  const invite = `this is Abby, ${providerName}'s assistant. You can start your quick ${body.specialty} check-in`
   return body.chatUrl
     ? `${greeting} ${invite} here: ${body.chatUrl}`
     : `${greeting} ${invite} before your visit.`
@@ -162,6 +162,13 @@ function normalizeCheckIn(value: Record<string, unknown>): CheckInRequest & { pa
 
 function firstName(name: string): string {
   return name.trim().split(/\s+/)[0] || name
+}
+
+function providerDisplayName(name?: string): string {
+  const trimmed = name?.trim() ?? ''
+  if (!trimmed) return ''
+  if (/^dr\.\s+/i.test(trimmed)) return trimmed
+  return `Dr. ${trimmed}`
 }
 
 function normalizeUrl(value: unknown): string | undefined {
